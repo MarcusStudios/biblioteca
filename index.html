@@ -94,21 +94,45 @@ video{width:100%;border-radius:3px;background:#000;max-height:240px;object-fit:c
 .empty{text-align:center;color:var(--mut);padding:36px 12px;grid-column:1/-1;font-size:.9rem}
 .backup{margin-top:24px;padding-top:14px;border-top:1px solid var(--bd);display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;font-size:.82rem;color:var(--mut)}
 [hidden]{display:none!important}
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
-.login-card{width:100%;max-width:440px;background:var(--card);border:1px solid var(--bd);border-radius:4px;padding:26px 24px;box-shadow:0 8px 24px rgba(28,27,24,.06)}
-.login-eyebrow{font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ac);margin-bottom:6px}
-.login-wrap h1{font-size:1.65rem;margin-bottom:4px}
-.divider{display:flex;align-items:center;gap:10px;margin:16px 0 12px;color:var(--mut);font-size:.78rem}
+.login-wrap{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.login-card{width:100%;max-width:420px;background:var(--card);border:1px solid var(--bd);border-radius:6px;padding:28px 24px;box-shadow:0 8px 24px rgba(28,27,24,.06)}
+.login-head{display:flex;align-items:center;gap:14px;padding:0;margin-bottom:20px}
+.login-mark{width:46px;height:46px;flex:0 0 auto;border-radius:6px;background:var(--ac);color:var(--acx);display:grid;place-items:center;font:600 1.5rem var(--serif)}
+.login-eyebrow{font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ac);margin-bottom:2px}
+.login-wrap h1{font-size:1.4rem;margin:0}
+.login-h2{font-size:1.05rem;margin:0 0 10px}
+.login-wrap label{font-size:.9rem;color:var(--tx);font-weight:500;margin:14px 0 6px}
+.login-wrap label .opt{color:var(--mut);font-weight:400}
+.lg-input{min-height:48px;font-size:1rem;padding:10px 12px;border-radius:4px}
+.lg-input:focus-visible,.btn-lg:focus-visible,.g-fallback:focus-visible,.user-card:focus-visible,.pin-toggle:focus-visible,.adv summary:focus-visible{outline:3px solid color-mix(in srgb,var(--ac) 45%,transparent);outline-offset:2px}
+.pin-wrap{position:relative}
+.pin-wrap .lg-input{padding-right:84px}
+.pin-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);min-height:36px;padding:0 12px;border:0;background:transparent;color:var(--ac);font:600 .85rem var(--sans);cursor:pointer;border-radius:4px}
+.pin-toggle:hover{background:var(--soft)}
+.login-msg{min-height:1.3em;margin:8px 0 0;font-size:.88rem}
+.btn-lg{min-height:50px;font-size:1rem;font-weight:600;margin-top:6px;border-radius:4px}
+.divider{display:flex;align-items:center;gap:10px;margin:18px 0 14px;color:var(--mut);font-size:.82rem}
 .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--bd)}
-.google-box{display:flex;flex-direction:column;gap:8px;margin-top:14px}
-.g-btn-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.g-fallback{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:3px;padding:9px 14px;font:500 .88rem var(--sans);cursor:pointer;transition:.15s}
+.user-cards{display:grid;gap:8px}
+.user-card{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 12px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:500 1rem var(--sans);text-align:left;cursor:pointer;transition:.15s}
+.user-card:hover{background:var(--soft);border-color:var(--ac)}
+.user-card .ua{width:38px;height:38px;flex:0 0 auto;border-radius:50%;background:var(--ac);color:var(--acx);display:grid;place-items:center;font:600 1.05rem var(--serif);overflow:hidden}
+.user-card .ua img{width:100%;height:100%;object-fit:cover}
+.user-card .un{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-card .uh{font-size:.78rem;color:var(--mut);font-weight:400}
+.google-box{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+#gBtnWrap{display:flex;justify-content:center}
+.g-fallback{width:100%;min-height:48px;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:4px;padding:10px 14px;font:500 .95rem var(--sans);cursor:pointer;transition:.15s}
 .g-fallback:hover{background:var(--soft);border-color:var(--mut)}
-.cfg-box{margin-top:6px;padding:10px 12px;background:var(--soft);border:1px solid var(--bd);border-radius:3px}
-.cfg-box label{margin-top:0}
+.adv{font-size:.8rem;color:var(--mut);margin-top:2px}
+.adv summary{cursor:pointer;padding:6px 2px;border-radius:3px}
+.cfg-box{margin-top:6px;padding:10px 12px;background:var(--soft);border:1px solid var(--bd);border-radius:4px}
+.cfg-box label{margin-top:0;font-size:.8rem}
+.login-foot{margin:18px 0 0;padding-top:12px;border-top:1px solid var(--bd);font-size:.8rem;color:var(--mut);line-height:1.45;text-align:center}
+@media (max-width:440px){.login-card{padding:22px 16px;border-radius:4px}}
+@media (prefers-reduced-motion:no-preference){.login-card{animation:rise .25s ease-out}}
 .user-avatar{width:24px;height:24px;border-radius:50%;object-fit:cover;border:1px solid var(--bd)}
 .user-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.login-foot{margin-top:16px;padding-top:12px;border-top:1px solid var(--bd);font-size:.76rem;color:var(--mut);line-height:1.45}
 .user-btn{display:inline-flex;align-items:center;gap:7px;background:transparent;border:1px solid transparent;border-radius:3px;padding:3px 7px;color:var(--tx);font:500 .84rem var(--sans);cursor:pointer;transition:.15s}
 .user-btn:hover{background:var(--soft);border-color:var(--bd)}
 .prof-hd{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -162,34 +186,47 @@ video{width:100%;border-radius:3px;background:#000;max-height:240px;object-fit:c
 <body>
 <section id="loginView" class="login-wrap" hidden>
 <div class="login-card">
+<header class="login-head">
+<div class="login-mark" aria-hidden="true">B</div>
+<div>
 <div class="login-eyebrow">Acervo Comunitário</div>
 <h1>Biblioteca do Convento</h1>
-<p class="msg" style="margin-top:2px">Identifique-se para consultar, cadastrar e registrar movimentações.</p>
+</div>
+</header>
+<div id="knownUsers" hidden>
+<h2 class="login-h2" id="recentTitle">Quem está entrando?</h2>
+<div class="user-cards" id="userChips" role="group" aria-labelledby="recentTitle"></div>
+<div class="divider">ou entre com outro nome</div>
+</div>
+<form id="loginForm" onsubmit="event.preventDefault();doLogin()" novalidate>
+<label for="loginNome">Seu nome</label>
+<input id="loginNome" class="lg-input" placeholder="Ex.: Irmã Clara" autocomplete="username" autocapitalize="words" enterkeyhint="next" aria-describedby="loginMsg" required>
+<label for="loginPin">PIN <span class="opt">(se tiver)</span></label>
+<div class="pin-wrap">
+<input id="loginPin" class="lg-input" type="password" inputmode="numeric" maxlength="12" autocomplete="current-password" enterkeyhint="go" aria-describedby="loginMsg">
+<button type="button" class="pin-toggle" id="pinToggle" onclick="togglePin()" aria-label="Mostrar PIN" aria-pressed="false">Mostrar</button>
+</div>
+<p class="msg warn login-msg" id="loginMsg" role="alert" aria-live="assertive"></p>
+<button type="submit" class="btn btn-lg">Entrar</button>
+</form>
+<div id="googleLoginBlock" hidden>
+<div class="divider">ou</div>
 <div class="google-box">
 <div id="gBtnWrap"></div>
-<button type="button" id="gFallbackBtn" class="g-fallback" onclick="triggerGoogleSetup()"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1C3.3 21.4 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.3 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.3C.5 8.2 0 10 0 12s.5 3.8 1.3 5.4l4-3.1z"/><path fill="#EA4335" d="M12 4.7c1.8 0 3.3.6 4.6 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.3 2.6 1.3 6.6l4 3.1c.9-2.9 3.6-5 6.7-5z"/></svg><span>Entrar com Google</span></button>
-<div class="g-btn-row"><button type="button" class="btn alt sm" id="gSetupBtn" onclick="toggleGoogleCfg()">Configurar login Google</button><span class="msg" id="gStatus" style="margin:0"></span></div>
+<button type="button" id="gFallbackBtn" class="g-fallback" onclick="triggerGoogleSetup()" hidden><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1C3.3 21.4 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.3 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.3C.5 8.2 0 10 0 12s.5 3.8 1.3 5.4l4-3.1z"/><path fill="#EA4335" d="M12 4.7c1.8 0 3.3.6 4.6 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.3 2.6 1.3 6.6l4 3.1c.9-2.9 3.6-5 6.7-5z"/></svg><span>Entrar com Google</span></button>
+<p class="msg" id="gStatus" role="status" style="margin:0;text-align:center" hidden></p>
+<details class="adv" id="gAdv" hidden>
+<summary id="gSetupBtn" onclick="toggleGoogleCfg(true)">Configurar login Google (administrador)</summary>
 <div id="gCfgBox" class="cfg-box" hidden>
 <label for="gCidInput">Google OAuth Client ID</label>
-<input id="gCidInput" placeholder="Ex.: 123456-abc.apps.googleusercontent.com" autocomplete="off">
-<div class="acts"><button type="button" class="btn sm" onclick="saveGoogleCid()">Salvar Client ID</button><button type="button" class="btn alt sm" onclick="clearGoogleCid()">Limpar</button></div>
+<input id="gCidInput" placeholder="123456-abc.apps.googleusercontent.com" autocomplete="off">
+<div class="acts"><button type="button" class="btn sm" onclick="saveGoogleCid()">Salvar</button><button type="button" class="btn alt sm" onclick="clearGoogleCid()">Limpar</button></div>
 <p class="msg" style="margin-top:6px">Necessário apenas uma vez para habilitar a janela oficial do Google neste endereço.</p>
 </div>
+</details>
 </div>
-<div class="divider">ou entre com seu nome</div>
-<form onsubmit="event.preventDefault();doLogin()">
-<label for="loginNome">Seu nome</label>
-<input id="loginNome" placeholder="Ex.: Irmã Clara, Frei Marcos" autocomplete="name" required>
-<label for="loginPin">PIN de acesso (opcional)</label>
-<input id="loginPin" type="password" inputmode="numeric" maxlength="12" placeholder="Deixe vazio se não tiver PIN">
-<p class="msg warn" id="loginMsg"></p>
-<button type="submit" class="btn">Entrar</button>
-</form>
-<div id="knownUsers" hidden>
-<label style="margin-top:14px">Acessos recentes</label>
-<div class="user-chips" id="userChips"></div>
 </div>
-<p class="login-foot">Todas as alterações no acervo — acessos, cadastros, edições, empréstimos, devoluções e backups — ficam registradas na aba <b>Log</b>.</p>
+<p class="login-foot">Suas ações no acervo ficam registradas na aba <b>Log</b>.</p>
 </div>
 </section>
 
@@ -249,9 +286,14 @@ video{width:100%;border-radius:3px;background:#000;max-height:240px;object-fit:c
 <datalist id="locais"></datalist>
 <label for="sinopse">Sinopse</label><textarea id="sinopse" rows="3" placeholder="Opcional (preenchida pelo ISBN quando disponível)"></textarea>
 <div class="grid2">
-<div><label for="qtd">Exemplares</label><input id="qtd" type="number" min="1" value="1" inputmode="numeric"></div>
-<div><label for="foto">Foto da capa</label><input id="foto" type="file" accept="image/*" capture="environment" onchange="pickPhoto(this)"></div>
+<div><label for="editora">Editora</label><input id="editora" placeholder="Opcional"></div>
+<div><label for="ano">Publicação</label><input id="ano" placeholder="Ex.: 2020"></div>
 </div>
+<div class="grid2">
+<div><label for="paginas">Páginas</label><input id="paginas" inputmode="numeric" placeholder="Opcional"></div>
+<div><label for="qtd">Exemplares</label><input id="qtd" type="number" min="1" value="1" inputmode="numeric"></div>
+</div>
+<label for="foto">Foto da capa</label><input id="foto" type="file" accept="image/*" capture="environment" onchange="pickPhoto(this)">
 <img id="prev" alt="Capa" hidden>
 <button class="btn alt" id="readBtn" onclick="readPhoto()" hidden>Ler título e autor da foto</button>
 <button class="btn" onclick="save()">Salvar livro</button>
@@ -343,7 +385,7 @@ video{width:100%;border-radius:3px;background:#000;max-height:240px;object-fit:c
 <button type="button" class="chip" id="fnLg" onclick="setFontSize('lg')">Grande</button>
 </div>
 </div>
-<div class="card">
+<div class="card" id="supaCard" hidden>
 <h3 style="margin-top:0">Sincronização em nuvem (Supabase)</h3>
 <p class="msg" id="sbStatus" style="margin-top:0">Modo local (sem Supabase configurado).</p>
 <div class="grid2">
@@ -622,7 +664,7 @@ function handleGoogleCredential(resp){
 }
 function initGoogleSignIn(){
   if(currentUser)return;
-  const wrap=$('gBtnWrap'),fb=$('gFallbackBtn'),st=$('gStatus');
+  const wrap=$('gBtnWrap'),fb=$('gFallbackBtn'),st=$('gStatus'),blk=$('googleLoginBlock');
   if(!wrap||!fb)return;
   const cid=getGoogleCid();
   const g=typeof window!=='undefined'&&window.google&&window.google.accounts&&window.google.accounts.id;
@@ -632,13 +674,14 @@ function initGoogleSignIn(){
       wrap.innerHTML='';
       g.renderButton(wrap,{theme:'outline',size:'large',text:'signin_with',shape:'rectangular',width:320});
       fb.hidden=true;
-      if(st)say('gStatus','Google pronto','ok');
+      if(blk)blk.hidden=false;
       return;
     }catch(e){}
   }
   wrap.innerHTML='';
-  fb.hidden=false;
-  if(st)say('gStatus',cid?'Aguardando script do Google…':'Opcional: configure o Client ID');
+  fb.hidden=true;
+  if(st)st.hidden=true;
+  if(blk)blk.hidden=true;
 }
 function renderAuth(){
   const logged=!!currentUser;
@@ -656,8 +699,16 @@ function renderAuth(){
   }
   const names=Object.keys(getUsers()).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   $('knownUsers').hidden=!names.length;
-  $('userChips').innerHTML=names.map(n=>`<button type="button" class="chip" onclick="pickUser('${esc(n).replace(/'/g,"&#39;")}')">${esc(n)}</button>`).join('');
+  $('userChips').innerHTML=names.map(n=>{const u=getUsers()[n]||{};return `<button type="button" class="user-card" onclick="pickUser('${esc(n).replace(/'/g,"&#39;")}')"><span class="ua">${u.foto?`<img src="${esc(u.foto)}" alt="">`:esc(n.charAt(0).toUpperCase())}</span><span class="un">${esc(n)}<br><span class="uh">${u.pin?'Pede PIN':'Toque para entrar'}</span></span></button>`}).join('');
   initGoogleSignIn();
+}
+function togglePin(){
+  const i=$('loginPin'),b=$('pinToggle');if(!i||!b)return;
+  const show=i.type==='password';
+  i.type=show?'text':'password';
+  b.textContent=show?'Ocultar':'Mostrar';
+  b.setAttribute('aria-pressed',show?'true':'false');
+  b.setAttribute('aria-label',show?'Ocultar PIN':'Mostrar PIN');
 }
 function pickUser(name){
   $('loginNome').value=name;
@@ -866,7 +917,14 @@ async function startScan(){
   const det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a']});
   const loop=async()=>{
     if(!scanning)return;
-    try{const r=await det.detect(v);if(r.length){const code=r[0].rawValue;stopScan();$('isbn').value=code;if(navigator.vibrate)navigator.vibrate(120);lookup(code);return}}catch(e){}
+    try{
+      const r=await det.detect(v);
+      if(r.length){
+        const hit=r.find(x=>parseIsbn(x.rawValue).valid)||r[0];
+        const code=hit.rawValue;
+        stopScan();$('isbn').value=code;if(navigator.vibrate)navigator.vibrate(120);lookup(code);return;
+      }
+    }catch(e){}
     setTimeout(loop,250);
   };loop();
 }
@@ -888,22 +946,43 @@ async function fetchJson(url,ms=7000){
 function cleanText(s){
   return String(s||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/\n{3,}/g,'\n\n').trim();
 }
+const BOOK_META_KEYS=['author','cover','category','editora','ano','paginas','sinopse'];
+function mergeBookMeta(target,src){
+  if(!target||!src)return target||src||null;
+  for(const k of BOOK_META_KEYS)if(!target[k]&&src[k])target[k]=src[k];
+  return target;
+}
+function parseGoogleItem(best,items){
+  const v=best&&best.volumeInfo;
+  if(!v)return null;
+  const pick=fn=>{for(const it of items){const r=fn(it,it&&it.volumeInfo||{});if(r)return r}return ''};
+  const cover=pick((it,vi)=>{const il=vi.imageLinks||{},u=il.thumbnail||il.smallThumbnail||'';return u?u.replace(/^http:/,'https:').replace('&edge=curl',''):''});
+  const sin=cleanText(pick((it,vi)=>vi.description||(it&&it.searchInfo&&it.searchInfo.textSnippet)||''));
+  return {
+    title:joinTitle(v.title,v.subtitle),
+    author:Array.isArray(v.authors)?v.authors.filter(Boolean).join(', '):pick((it,vi)=>Array.isArray(vi.authors)?vi.authors.filter(Boolean).join(', '):''),
+    cover,
+    category:pick((it,vi)=>Array.isArray(vi.categories)&&vi.categories[0]?String(vi.categories[0]).split('/')[0].trim():''),
+    editora:v.publisher||pick((it,vi)=>vi.publisher||''),
+    ano:v.publishedDate?String(v.publishedDate):pick((it,vi)=>vi.publishedDate?String(vi.publishedDate):''),
+    paginas:v.pageCount?String(v.pageCount):pick((it,vi)=>vi.pageCount?String(vi.pageCount):''),
+    sinopse:sin,
+    source:'Google Books'
+  };
+}
 const ISBN_PROVIDERS=[
   {name:'BrasilAPI',async get(code){
     const d=await fetchJson('https://brasilapi.com.br/api/isbn/v1/'+encodeURIComponent(code));
     if(!d||!d.title)return null;
     const author=Array.isArray(d.authors)?d.authors.filter(Boolean).join(', '):(d.authors||'');
-    return {title:joinTitle(d.title,d.subtitle),author,cover:d.cover_url||'',category:'',editora:d.publisher||'',ano:d.year?String(d.year):'',paginas:d.page_count?String(d.page_count):'',sinopse:cleanText(d.synopsis),source:'BrasilAPI'};
+    const cat=Array.isArray(d.subjects)&&d.subjects[0]?String(d.subjects[0]).split('/')[0].trim():'';
+    return {title:joinTitle(d.title,d.subtitle),author,cover:d.cover_url||'',category:cat,editora:String(d.publisher||'').trim(),ano:d.year?String(d.year):'',paginas:d.page_count?String(d.page_count):'',sinopse:cleanText(d.synopsis),source:'BrasilAPI'};
   }},
   {name:'Google Books',async get(code){
     const d=await fetchJson('https://www.googleapis.com/books/v1/volumes?q=isbn:'+encodeURIComponent(code));
     const items=Array.isArray(d&&d.items)?d.items:[];
     const best=items.find(x=>x&&x.volumeInfo&&x.volumeInfo.title&&Array.isArray(x.volumeInfo.authors)&&x.volumeInfo.authors.length)||items.find(x=>x&&x.volumeInfo&&x.volumeInfo.title);
-    const v=best&&best.volumeInfo;
-    if(!v)return null;
-    const il=v.imageLinks||{},cover=(il.thumbnail||il.smallThumbnail||'').replace(/^http:/,'https:').replace('&edge=curl','');
-    const sin=cleanText(v.description||(best.searchInfo&&best.searchInfo.textSnippet)||'');
-    return {title:joinTitle(v.title,v.subtitle),author:Array.isArray(v.authors)?v.authors.filter(Boolean).join(', '):'',cover,category:Array.isArray(v.categories)?String(v.categories[0]||'').split('/')[0].trim():'',editora:v.publisher||'',ano:v.publishedDate?String(v.publishedDate):'',paginas:v.pageCount?String(v.pageCount):'',sinopse:sin,source:'Google Books'};
+    return parseGoogleItem(best,items);
   }},
   {name:'Open Library',async get(code){
     const key='ISBN:'+code;
@@ -915,11 +994,21 @@ const ISBN_PROVIDERS=[
     return {title:joinTitle(b.title,b.subtitle),author,cover:cv.medium||cv.large||cv.small||'',category:Array.isArray(b.subjects)&&b.subjects[0]?b.subjects[0].name:'',editora:Array.isArray(b.publishers)&&b.publishers[0]?b.publishers[0].name:'',ano:b.publish_date||'',paginas:b.number_of_pages?String(b.number_of_pages):'',sinopse:cleanText(b.notes||ex||''),source:'Open Library'};
   }},
   {name:'Open Library Search',async get(code){
-    const d=await fetchJson('https://openlibrary.org/search.json?isbn='+encodeURIComponent(code)+'&fields=title,subtitle,author_name&limit=3');
+    const d=await fetchJson('https://openlibrary.org/search.json?isbn='+encodeURIComponent(code)+'&fields=title,subtitle,author_name,publisher,first_publish_year,number_of_pages_median,subject,cover_i&limit=3');
     const docs=Array.isArray(d&&d.docs)?d.docs:[];
     const doc=docs.find(x=>x&&x.title&&Array.isArray(x.author_name)&&x.author_name.length)||docs.find(x=>x&&x.title);
     if(!doc)return null;
-    return {title:joinTitle(doc.title,doc.subtitle),author:Array.isArray(doc.author_name)?doc.author_name.filter(Boolean).join(', '):'',cover:'',category:'',editora:'',ano:'',paginas:'',sinopse:'',source:'Open Library'};
+    return {
+      title:joinTitle(doc.title,doc.subtitle),
+      author:Array.isArray(doc.author_name)?doc.author_name.filter(Boolean).join(', '):'',
+      cover:doc.cover_i?'https://covers.openlibrary.org/b/id/'+doc.cover_i+'-L.jpg?default=false':'',
+      category:Array.isArray(doc.subject)&&doc.subject[0]?String(doc.subject[0]).split('/')[0].trim():'',
+      editora:Array.isArray(doc.publisher)&&doc.publisher[0]?String(doc.publisher[0]):'',
+      ano:doc.first_publish_year?String(doc.first_publish_year):'',
+      paginas:doc.number_of_pages_median?String(doc.number_of_pages_median):'',
+      sinopse:'',
+      source:'Open Library'
+    };
   }}
 ];
 async function queryIsbnProviders(code){
@@ -935,10 +1024,76 @@ async function queryIsbnProviders(code){
     }
   }));
   const found=results.find(Boolean);
-  if(found)for(const k of ['author','cover','category','editora','ano','paginas','sinopse']){
-    if(!found[k]){const o=results.find(r=>r&&r[k]);if(o)found[k]=o[k]}
-  }
+  if(found)for(const r of results)mergeBookMeta(found,r);
   return {book:found||null,reachable};
+}
+async function queryWikiSummary(title){
+  if(!title)return null;
+  try{
+    const sUrl='https://pt.wikipedia.org/w/api.php?action=query&list=search&srsearch='+encodeURIComponent(title)+'&format=json&origin=*&srlimit=1';
+    const sd=await fetchJson(sUrl,4000);
+    const hit=sd&&sd.query&&Array.isArray(sd.query.search)&&sd.query.search[0];
+    if(!hit||!hit.pageid)return null;
+    const norm=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'').trim();
+    const t1=norm(title),t2=norm(hit.title);
+    if(!t1||!t2||(!t2.startsWith(t1.slice(0,14))&&!t1.startsWith(t2.slice(0,14))))return null;
+    const eUrl='https://pt.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages&exintro=1&explaintext=1&pithumbsize=400&pageids='+hit.pageid+'&format=json&origin=*';
+    const ed=await fetchJson(eUrl,4000);
+    const pg=ed&&ed.query&&ed.query.pages&&ed.query.pages[String(hit.pageid)];
+    if(!pg||!pg.extract)return null;
+    const ext=String(pg.extract).split('\n')[0].trim();
+    if(!/(livro|obra|tratado|romance|escrito|publicad|autor|santo|teolog)/i.test(ext))return null;
+    return {sinopse:ext.slice(0,700),cover:(pg.thumbnail&&pg.thumbnail.source)||''};
+  }catch(e){return null}
+}
+async function queryByTitleAuthor(title,author){
+  if(!title)return null;
+  const out={};
+  const olUrl='https://openlibrary.org/search.json?title='+encodeURIComponent(title)+(author?'&author='+encodeURIComponent(author.split(',')[0].trim()):'')+'&fields=title,subtitle,author_name,publisher,first_publish_year,number_of_pages_median,subject,cover_i&limit=3';
+  const gbUrl='https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent('intitle:'+title+(author?' inauthor:'+author.split(',')[0].trim():''))+'&maxResults=3';
+  const [olRes,gbRes]=await Promise.all([
+    fetchJson(olUrl,4500).then(d=>{
+      const docs=Array.isArray(d&&d.docs)?d.docs:[];
+      const doc=docs.find(x=>x&&x.title&&Array.isArray(x.author_name)&&x.author_name.length)||docs[0];
+      if(!doc)return null;
+      return {
+        author:Array.isArray(doc.author_name)?doc.author_name.filter(Boolean).join(', '):'',
+        cover:doc.cover_i?'https://covers.openlibrary.org/b/id/'+doc.cover_i+'-L.jpg?default=false':'',
+        category:Array.isArray(doc.subject)&&doc.subject[0]?String(doc.subject[0]).split('/')[0].trim():'',
+        editora:Array.isArray(doc.publisher)&&doc.publisher[0]?String(doc.publisher[0]):'',
+        ano:doc.first_publish_year?String(doc.first_publish_year):'',
+        paginas:doc.number_of_pages_median?String(doc.number_of_pages_median):'',
+        sinopse:''
+      };
+    }).catch(()=>null),
+    fetchJson(gbUrl,4500).then(d=>{
+      const items=Array.isArray(d&&d.items)?d.items:[];
+      const tLow=title.toLowerCase();
+      const best=items.find(x=>x&&x.volumeInfo&&x.volumeInfo.title&&x.volumeInfo.title.toLowerCase().includes(tLow.slice(0,12)))||items[0];
+      return parseGoogleItem(best,items);
+    }).catch(()=>null)
+  ]);
+  if(olRes)mergeBookMeta(out,olRes);
+  if(gbRes)mergeBookMeta(out,gbRes);
+  if(!out.sinopse){
+    const wk=await queryWikiSummary(title);
+    if(wk)mergeBookMeta(out,wk);
+  }
+  return Object.keys(out).length?out:null;
+}
+async function resolveBookByVariants(variants){
+  let res=await queryIsbnProviders(variants[0]);
+  const missing=b=>!b||BOOK_META_KEYS.some(k=>!b[k]);
+  if(variants[1]&&missing(res.book)){
+    const alt=await queryIsbnProviders(variants[1]);
+    if(alt.book)res.book=res.book?mergeBookMeta(res.book,alt.book):alt.book;
+    res.reachable=res.reachable||alt.reachable;
+  }
+  if(res.book&&missing(res.book)){
+    const fb=await queryByTitleAuthor(res.book.title,res.book.author);
+    if(fb)mergeBookMeta(res.book,fb);
+  }
+  return res;
 }
 
 function imgOk(url,ms=6000){
@@ -969,26 +1124,26 @@ async function lookup(raw){
   const code=parsed.code,variants=parsed.variants;
   $('isbn').value=code;
   const ex=books.find(b=>variants.includes(normIsbn(b.isbn)));
-  if(ex){
+    if(ex){
     say('scanMsg','Este livro já está cadastrado: “'+ex.titulo+'”. Salvar de novo soma um exemplar.','warn');
     $('titulo').value=ex.titulo;$('autor').value=ex.autor;$('local').value=ex.local;$('categoria').value=ex.categoria||'';$('sinopse').value=ex.sinopse||'';
+    if($('editora'))$('editora').value=ex.editora||'';if($('ano'))$('ano').value=ex.ano||'';if($('paginas'))$('paginas').value=ex.paginas||'';
     return;
   }
   const btn=$('lookupBtn');btn.disabled=true;btn.textContent='Buscando…';
   pendingMeta={};
   say('scanMsg','Buscando dados do livro…');
   try{
-    let res=await queryIsbnProviders(code);
-    if(!res.book&&variants[1]){
-      const alt=await queryIsbnProviders(variants[1]);
-      res={book:alt.book,reachable:res.reachable||alt.reachable};
-    }
+    const res=await resolveBookByVariants(variants);
     if(seq!==lookupSeq)return;
     if(res.book){
       $('titulo').value=res.book.title||'';
       $('autor').value=res.book.author||'';
       if(!$('categoria').value&&res.book.category)$('categoria').value=res.book.category;
       if(res.book.sinopse)$('sinopse').value=res.book.sinopse;
+      if($('editora'))$('editora').value=res.book.editora||'';
+      if($('ano'))$('ano').value=res.book.ano||'';
+      if($('paginas'))$('paginas').value=res.book.paginas||'';
       pendingMeta={editora:res.book.editora||'',ano:res.book.ano||'',paginas:res.book.paginas||''};
       say('scanMsg','Livro encontrado ('+res.book.source+')! Buscando capa…','ok');
       const cv=await findCover(res.book,variants);
@@ -1036,13 +1191,14 @@ async function save(){
   if(!col){say('saveMsg','Sem conexão com o banco de dados.','warn');return}
   if(!titulo){say('saveMsg','Informe ao menos o título.','warn');return}
   const categoria=$('categoria').value.trim(),sinopse=$('sinopse').value.trim(),isbn=normIsbn($('isbn').value),qtd=Math.max(1,+$('qtd').value||1);
+  const meta={editora:($('editora')?$('editora').value.trim():pendingMeta.editora)||'',ano:($('ano')?$('ano').value.trim():pendingMeta.ano)||'',paginas:($('paginas')?$('paginas').value.trim():pendingMeta.paginas)||''};
   const variants=isbnVariants(isbn);
   const ex=isbn&&books.find(b=>{const bi=normIsbn(b.isbn);return bi&&(bi===isbn||variants.includes(bi))});
   try{
-    if(ex){const u={qtd:(ex.qtd||1)+qtd};if(photo)u.foto=photo;if(categoria)u.categoria=categoria;if(sinopse)u.sinopse=sinopse;await col.doc(ex.id).update(u);await addLog('Cadastro','Somou '+qtd+' exemplar(es)',ex.titulo)}
-    else{await col.doc(isbn?'isbn'+isbn:'b'+Date.now()).set({isbn,titulo,autor:$('autor').value.trim(),local:$('local').value.trim(),categoria,sinopse,...pendingMeta,qtd,emp:[],foto:photo,criado:Date.now(),criadoPor:currentUser||''});await addLog('Cadastro','Novo livro ('+qtd+' ex.)',titulo)}
+    if(ex){const u={qtd:(ex.qtd||1)+qtd};if(photo)u.foto=photo;if(categoria)u.categoria=categoria;if(sinopse)u.sinopse=sinopse;if(meta.editora&&!ex.editora)u.editora=meta.editora;if(meta.ano&&!ex.ano)u.ano=meta.ano;if(meta.paginas&&!ex.paginas)u.paginas=meta.paginas;await col.doc(ex.id).update(u);await addLog('Cadastro','Somou '+qtd+' exemplar(es)',ex.titulo)}
+    else{await col.doc(isbn?'isbn'+isbn:'b'+Date.now()).set({isbn,titulo,autor:$('autor').value.trim(),local:$('local').value.trim(),categoria,sinopse,...meta,qtd,emp:[],foto:photo,criado:Date.now(),criadoPor:currentUser||''});await addLog('Cadastro','Novo livro ('+qtd+' ex.)',titulo)}
     pendingMeta={};
-    ['isbn','titulo','autor','categoria','sinopse'].forEach(i=>$(i).value='');$('qtd').value=1;$('foto').value='';photo='';$('prev').hidden=true;$('readBtn').hidden=true;
+    ['isbn','titulo','autor','categoria','sinopse','editora','ano','paginas'].forEach(i=>{if($(i))$(i).value=''});$('qtd').value=1;$('foto').value='';photo='';$('prev').hidden=true;$('readBtn').hidden=true;
     say('saveMsg','✔ “'+titulo+'” salvo no acervo. Escaneie o próximo livro.','ok');toast('Livro registrado ✔');window.scrollTo({top:0,behavior:'smooth'});say('scanMsg','Aponte a câmera para o código de barras na contracapa.');
   }catch(err){say('saveMsg','Não foi possível salvar ('+(err&&(err.code||err.name)||'erro')+'). Você precisa ter permissão de edição.','warn')}
 }
@@ -1205,8 +1361,7 @@ async function lookupEdit(){
   const btn=$('eLookupBtn');if(btn){btn.disabled=true;btn.textContent='…'}
   say('editMsg','Buscando dados pelo ISBN…');
   try{
-    let res=await queryIsbnProviders(parsed.code);
-    if(!res.book&&parsed.variants[1])res=await queryIsbnProviders(parsed.variants[1]);
+    const res=await resolveBookByVariants(parsed.variants);
     const bk=res.book;
     if(!bk){say('editMsg','Nenhum dado encontrado para este ISBN.','warn');return}
     if(!$('eTitulo').value.trim()&&bk.title)$('eTitulo').value=bk.title;
@@ -1263,11 +1418,7 @@ async function fetchSynopsis(id){
   const b=books.find(x=>x.id===id);if(!b||!b.isbn)return;
   const btn=$('synBtn');if(btn){btn.disabled=true;btn.textContent='Buscando sinopse…'}
   const vars=isbnVariants(normIsbn(b.isbn));
-  let res=await queryIsbnProviders(vars[0]||b.isbn);
-  if((!res.book||!res.book.sinopse)&&vars[1]){
-    const alt=await queryIsbnProviders(vars[1]);
-    if(alt.book&&alt.book.sinopse)res=alt;
-  }
+  const res=await resolveBookByVariants(vars.length?vars:[b.isbn]);
   const bk=res.book;
   if(bk&&(bk.sinopse||bk.editora||bk.ano||bk.paginas)){
     const patch={};
