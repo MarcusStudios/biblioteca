@@ -1,3 +1,4 @@
 .env
 .env.*
+config/keys.js
 config/keys.local.js
