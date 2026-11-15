@@ -252,7 +252,8 @@ function initGoogleSignIn(){
     try{
       g.initialize({client_id:cid,callback:handleGoogleCredential});
       wrap.innerHTML='';
-      g.renderButton(wrap,{theme:'outline',size:'large',text:'signin_with',shape:'rectangular',width:320});
+      const btnW=Math.min(360,Math.max(220,(wrap.parentElement&&wrap.parentElement.clientWidth)||320));
+      g.renderButton(wrap,{theme:'filled_black',size:'large',text:'signin_with',shape:'rectangular',width:btnW});
       fb.hidden=true;
       return;
     }catch(e){}
