@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-let books=[],logs=[],col=null,logsCol=null,photo='',lookupSeq=0,pendingMeta={},openBookId='',editMode=false,editPhoto='',currentUser='';
+let books=[],logs=[],col=null,logsCol=null,photo='',lookupSeq=0,pendingMeta={},openBookId='',editMode=false,lendMode=false,editPhoto='',currentUser='';
 let filt='all';
 const COLORS=['#5a3a22','#3f4f2f','#4a3a2a','#2f4046','#6b4a2a','#46402f','#503a30'];
 let view='list';try{view=localStorage.getItem('biblioteca_view')||'list'}catch(e){}
@@ -233,7 +233,7 @@ function handleGoogleCredential(resp){
   const email=String(p.email||'').trim(),foto=String(p.picture||'').trim();
   const users=getUsers();
   const prev=users[nome]||{};
-  users[nome]={...prev,pin:prev.pin||'',email,foto,tipo:'google',criado:prev.criado||Date.now()};
+  users[nome]={...prev,email,foto,tipo:'google',criado:prev.criado||Date.now()};
   saveUsers(users);
   currentUser=nome;
   try{localStorage.setItem('biblioteca_user',nome)}catch(e){}
@@ -241,6 +241,7 @@ function handleGoogleCredential(resp){
   renderAuth();tab(0);
   addLog('Acesso','Entrou com Google'+(email?' ('+email+')':''));
 }
+let lastGsiW=0,gsiResizeT=0;
 function initGoogleSignIn(){
   if(currentUser)return;
   const wrap=$('gBtnWrap'),fb=$('gFallbackBtn'),st=$('gStatus'),blk=$('googleLoginBlock');
@@ -250,18 +251,26 @@ function initGoogleSignIn(){
   const g=typeof window!=='undefined'&&window.google&&window.google.accounts&&window.google.accounts.id;
   if(cid&&g){
     try{
-      g.initialize({client_id:cid,callback:handleGoogleCredential});
+      const btnW=Math.min(360,Math.max(200,(wrap.parentElement&&wrap.parentElement.clientWidth)||320));
+      if(lastGsiW===btnW&&wrap.childElementCount)return;
+      if(!lastGsiW)g.initialize({client_id:cid,callback:handleGoogleCredential});
       wrap.innerHTML='';
-      const btnW=Math.min(360,Math.max(220,(wrap.parentElement&&wrap.parentElement.clientWidth)||320));
       g.renderButton(wrap,{theme:'filled_black',size:'large',text:'signin_with',shape:'rectangular',width:btnW});
+      lastGsiW=btnW;
       fb.hidden=true;
       return;
     }catch(e){}
   }
+  lastGsiW=0;
   wrap.innerHTML='';
   fb.hidden=false;
   if(st)st.hidden=true;
 }
+if(typeof addEventListener==='function')addEventListener('resize',()=>{
+  if(currentUser)return;
+  clearTimeout(gsiResizeT);
+  gsiResizeT=setTimeout(initGoogleSignIn,150);
+});
 function renderAuth(){
   const logged=!!currentUser;
   $('loginView').hidden=logged;
@@ -276,50 +285,21 @@ function renderAuth(){
     renderHome();
     return;
   }
-  const names=Object.keys(getUsers()).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  $('knownUsers').hidden=!names.length;
-  $('userChips').innerHTML=names.map(n=>{const u=getUsers()[n]||{};return `<button type="button" class="user-card" onclick="pickUser('${esc(n).replace(/'/g,"&#39;")}')"><span class="ua">${u.foto?`<img src="${esc(u.foto)}" alt="">`:esc(n.charAt(0).toUpperCase())}</span><span class="un">${esc(n)}<br><span class="uh">${u.pin?'Pede PIN':'Toque para entrar'}</span></span></button>`}).join('');
   initGoogleSignIn();
-}
-function togglePin(){
-  const i=$('loginPin'),b=$('pinToggle');if(!i||!b)return;
-  const show=i.type==='password';
-  i.type=show?'text':'password';
-  b.textContent=show?'Ocultar':'Mostrar';
-  b.setAttribute('aria-pressed',show?'true':'false');
-  b.setAttribute('aria-label',show?'Ocultar PIN':'Mostrar PIN');
-}
-function pickUser(name){
-  $('loginNome').value=name;
-  const u=getUsers()[name];
-  if(!u||!u.pin)doLogin();
-  else $('loginPin').focus();
-}
-function doLogin(){
-  const nome=$('loginNome').value.trim(),pin=$('loginPin').value.trim();
-  if(!nome){say('loginMsg','Informe seu nome para entrar.','warn');return}
-  const users=getUsers();
-  if(users[nome]){
-    if(users[nome].pin&&users[nome].pin!==pin){say('loginMsg','PIN incorreto para '+nome+'.','warn');return}
-    if(!users[nome].pin&&pin)users[nome].pin=pin;
-  }else{
-    users[nome]={pin,tipo:'local',criado:Date.now()};
-  }
-  saveUsers(users);
-  currentUser=nome;
-  try{localStorage.setItem('biblioteca_user',nome)}catch(e){}
-  $('loginPin').value='';say('loginMsg','');
-  renderAuth();tab(0);
-  addLog('Acesso','Entrou no sistema');
 }
 function logout(){
   const who=currentUser;
   if(who)addLog('Acesso','Saiu do sistema');
-  currentUser='';
+  currentUser='';lastGsiW=0;
   try{localStorage.removeItem('biblioteca_user')}catch(e){}
   renderAuth();
 }
-try{currentUser=localStorage.getItem('biblioteca_user')||''}catch(e){}
+try{
+  const saved=localStorage.getItem('biblioteca_user')||'';
+  const su=saved&&getUsers()[saved];
+  if(su&&su.tipo==='google')currentUser=saved;
+  else if(saved)localStorage.removeItem('biblioteca_user');
+}catch(e){}
 renderAuth();
 async function addLog(acao,detalhes,livro=''){
   if(!logsCol)return;
@@ -330,7 +310,7 @@ async function addLog(acao,detalhes,livro=''){
 }
 (async()=>{
   if(!window.claude){useLocalDb();return}
-  const t=setTimeout(()=>{if(!col){const b=$('dbBanner');b.hidden=false;b.textContent='Banco de dados indisponível. Abra pelo claude.ai e entre na sua conta.'}},10000);
+  const t=setTimeout(()=>{if(!col){const b=$('dbBanner');b.hidden=false;b.textContent='Banco de dados indisponível no momento. Verifique sua conexão.'}},10000);
   try{
     const db=await claude.use('db');
     if(!db){clearTimeout(t);useLocalDb();return}
@@ -368,7 +348,7 @@ function renderProfile(){
   const av=$('profAv');
   if(av)av.innerHTML=u.foto?`<img src="${esc(u.foto)}" alt="${esc(currentUser)}">`:esc(currentUser.charAt(0).toUpperCase()||'?');
   $('profName').textContent=currentUser;
-  const parts=[u.tipo==='google'?'Conta Google':'Conta local'];
+  const parts=['Conta Google'];
   if(u.email)parts.push(u.email);
   if(u.role)parts.push(u.role);
   if(u.criado)parts.push('Desde '+new Date(u.criado).toLocaleDateString('pt-BR'));
@@ -379,8 +359,6 @@ function renderProfile(){
   $('profKpis').innerHTML=`<div class="kpi"><b>${myBooks}</b><span>Obras cadastradas</span></div><div class="kpi"><b>${myLoans}</b><span>Empréstimos feitos</span></div><div class="kpi"><b>${myLogs.length}</b><span>Registros no log</span></div>`;
   $('profNomeInput').value=currentUser;
   $('profRoleInput').value=u.role||'';
-  $('profPinInput').value='';
-  $('profRmPinBtn').hidden=!u.pin;
   say('profMsg','');
   let th='';try{th=localStorage.getItem('biblioteca_theme')||''}catch(e){}
   $('thAuto').classList.toggle('on',!th);
@@ -399,15 +377,14 @@ function renderProfile(){
   $('profLogs').innerHTML=recent.length?recent.map(l=>`<div class="log-row"><div class="log-top"><span class="log-act">${esc(l.acao)}${l.livro?' · '+esc(l.livro):''}</span><span class="log-time">${new Date(l.criado||0).toLocaleString('pt-BR')}</span></div><div class="log-det">${esc(l.detalhes||'')}</div></div>`).join(''):'<p class="msg">Nenhuma atividade registrada ainda para este usuário.</p>';
 }
 async function saveProfile(){
-  const novo=$('profNomeInput').value.trim(),role=$('profRoleInput').value.trim(),pin=$('profPinInput').value.trim();
+  const novo=$('profNomeInput').value.trim(),role=$('profRoleInput').value.trim();
   if(!novo){say('profMsg','Informe o nome de exibição.','warn');return}
-  const users=getUsers(),oldName=currentUser,prev=users[oldName]||{criado:Date.now(),tipo:'local',pin:''};
+  const users=getUsers(),oldName=currentUser,prev=users[oldName]||{criado:Date.now(),tipo:'google'};
   if(novo!==oldName&&users[novo]){say('profMsg','Já existe outro usuário com o nome “'+novo+'”.','warn');return}
   const diffs=[];
   if(novo!==oldName)diffs.push('Nome: '+oldName+' → '+novo);
   if((prev.role||'')!==role)diffs.push('Função: '+(prev.role||'vazio')+' → '+(role||'vazio'));
-  if(pin)diffs.push(prev.pin?'PIN alterado':'PIN definido');
-  const next={...prev,role,pin:pin||prev.pin||''};
+  const next={...prev,role};
   if(novo!==oldName)delete users[oldName];
   users[novo]=next;
   saveUsers(users);
@@ -422,16 +399,8 @@ async function saveProfile(){
   if(diffs.length)await addLog('Perfil',diffs.join('; '));
   toast('Perfil salvo ✔');
 }
-async function removeProfilePin(){
-  const users=getUsers(),u=users[currentUser];
-  if(!u||!u.pin)return;
-  u.pin='';
-  saveUsers(users);
-  renderProfile();
-  await addLog('Perfil','PIN de acesso removido');
-  toast('PIN removido ✔');
-}
-function tab(n){[0,1,2,3,4].forEach(i=>{$('p'+i).hidden=i!==n;$('t'+i).classList.toggle('on',i===n)});if(n===0)renderHome();if(n===2)render();if(n===3)renderLogs();if(n===4)renderProfile()}
+function tab(n){[0,1,2,3,4].forEach(i=>{$('p'+i).hidden=i!==n;const b=$('t'+i);b.classList.toggle('on',i===n);if(b.setAttribute)b.setAttribute('aria-selected',String(i===n))});if(n===0)renderHome();if(n===2)render();if(n===3)renderLogs();if(n===4)renderProfile()}
+function goCatalog(f,q){filt=f||'all';if($('q'))$('q').value=q?String(q).trim():'';if($('homeQ'))$('homeQ').value='';tab(2)}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function say(id,t,c){const m=$(id);m.textContent=t;m.className='msg '+(c||'')}
 function normIsbn(s){return String(s||'').toUpperCase().replace(/[^0-9X]/g,'')}
@@ -636,6 +605,7 @@ async function queryByTitleAuthor(title,author){
       const doc=docs.find(x=>x&&x.title&&Array.isArray(x.author_name)&&x.author_name.length)||docs[0];
       if(!doc)return null;
       return {
+        title:joinTitle(doc.title,doc.subtitle),
         author:Array.isArray(doc.author_name)?doc.author_name.filter(Boolean).join(', '):'',
         cover:doc.cover_i?'https://covers.openlibrary.org/b/id/'+doc.cover_i+'-L.jpg?default=false':'',
         category:Array.isArray(doc.subject)&&doc.subject[0]?String(doc.subject[0]).split('/')[0].trim():'',
@@ -740,6 +710,35 @@ async function lookup(raw){
     if(seq===lookupSeq){btn.disabled=false;btn.textContent='Buscar'}
   }
 }
+async function lookupByTitle(){
+  const titulo=$('titulo')?$('titulo').value.trim():'',autor=$('autor')?$('autor').value.trim():'';
+  if(!titulo){if($('titleLookupMsg'))say('titleLookupMsg','Informe ao menos o título para buscar.','warn');if($('titulo'))$('titulo').focus();return}
+  const seq=++lookupSeq;
+  const btn=$('titleLookupBtn');
+  if(btn){btn.disabled=true;btn.textContent='Buscando…'}
+  if($('titleLookupMsg'))say('titleLookupMsg','Buscando dados pelo título e autor…');
+  try{
+    const bk=await queryByTitleAuthor(titulo,autor);
+    if(seq!==lookupSeq)return;
+    if(!bk){if($('titleLookupMsg'))say('titleLookupMsg','Nenhum dado adicional encontrado para este título.','warn');return}
+    if(bk.author&&$('autor')&&!$('autor').value.trim())$('autor').value=bk.author;
+    if(bk.category&&$('categoria')&&!$('categoria').value.trim())$('categoria').value=bk.category;
+    if(bk.sinopse&&$('sinopse')&&!$('sinopse').value.trim())$('sinopse').value=bk.sinopse;
+    if(bk.editora&&$('editora')&&!$('editora').value.trim())$('editora').value=bk.editora;
+    if(bk.ano&&$('ano')&&!$('ano').value.trim())$('ano').value=bk.ano;
+    if(bk.paginas&&$('paginas')&&!$('paginas').value.trim())$('paginas').value=bk.paginas;
+    pendingMeta={editora:($('editora')&&$('editora').value.trim())||bk.editora||'',ano:($('ano')&&$('ano').value.trim())||bk.ano||'',paginas:($('paginas')&&$('paginas').value.trim())||bk.paginas||''};
+    let gotCov=false;
+    if(!photo&&(!($('foto')&&$('foto').value))){
+      const cv=await findCover(bk,[]);
+      if(seq!==lookupSeq)return;
+      if(cv){setCover(cv);gotCov=true}
+    }
+    if($('titleLookupMsg'))say('titleLookupMsg','Dados preenchidos'+(gotCov?' com capa':'')+'! Confira antes de salvar.','ok');
+  }finally{
+    if(seq===lookupSeq&&btn){btn.disabled=false;btn.textContent='Buscar dados pelo título e autor'}
+  }
+}
 
 function toBlob(u){const a=u.split(','),bin=atob(a[1]),n=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)n[i]=bin.charCodeAt(i);return new Blob([n],{type:'image/jpeg'})}
 async function ask(prompt,opts){
@@ -778,7 +777,7 @@ async function save(){
     else{await col.doc(isbn?'isbn'+isbn:'b'+Date.now()).set({isbn,titulo,autor:$('autor').value.trim(),local:$('local').value.trim(),categoria,sinopse,...meta,qtd,emp:[],foto:photo,criado:Date.now(),criadoPor:currentUser||''});await addLog('Cadastro','Novo livro ('+qtd+' ex.)',titulo)}
     pendingMeta={};
     ['isbn','titulo','autor','categoria','sinopse','editora','ano','paginas'].forEach(i=>{if($(i))$(i).value=''});$('qtd').value=1;$('foto').value='';photo='';$('prev').hidden=true;$('readBtn').hidden=true;
-    say('saveMsg','✔ “'+titulo+'” salvo no acervo. Escaneie o próximo livro.','ok');toast('Livro registrado ✔');window.scrollTo({top:0,behavior:'smooth'});say('scanMsg','Aponte a câmera para o código de barras na contracapa.');
+    say('saveMsg','✔ “'+titulo+'” salvo no acervo. Escaneie o próximo livro.','ok');toast('Livro registrado ✔');window.scrollTo({top:0,behavior:'smooth'});say('scanMsg','Aponte a câmera para o código de barras na contracapa.');if($('titleLookupMsg'))say('titleLookupMsg','');
   }catch(err){say('saveMsg','Não foi possível salvar ('+(err&&(err.code||err.name)||'erro')+'). Você precisa ter permissão de edição.','warn')}
 }
 function hue(t){let h=0;for(const c of String(t))h=(h*31+c.charCodeAt(0))>>>0;return COLORS[h%COLORS.length]}
@@ -802,8 +801,8 @@ function free(b){return (b.qtd||1)-(b.emp||[]).length}
 function setFilt(f){filt=f;render()}
 function render(){
   const q=$('q').value.trim().toLowerCase(),qIsbn=normIsbn(q),qVars=isbnVariants(qIsbn);
-  const nTit=books.length,nEx=books.reduce((s,b)=>s+(b.qtd||0),0),nOut=books.reduce((s,b)=>s+(b.emp||[]).length,0);
-  $('stats').textContent=nTit?nTit+' títulos · '+nEx+' exemplares · '+nOut+' emprestado(s)':'Nenhum livro cadastrado ainda';
+  const nTit=books.length,nEx=books.reduce((s,b)=>s+(b.qtd||0),0),nOut=books.reduce((s,b)=>s+(b.emp||[]).length,0),nLate=books.reduce((s,b)=>s+(b.emp||[]).filter(p=>loanInfo(p).atraso>0).length,0);
+  $('stats').textContent=nTit?nTit+' títulos · '+nEx+' exemplares · '+nOut+' emprestado(s)'+(nLate?' ('+nLate+' atrasado'+(nLate>1?'s':'')+')':''):'Nenhum livro cadastrado ainda';
   $('navN').textContent=nTit;
   const locs=[...new Set(books.map(b=>(b.local||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const cats=[...new Set(books.map(b=>(b.categoria||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
@@ -836,22 +835,32 @@ function render(){
     return `<article class="bk" tabindex="0" onclick="openBook('${b.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBook('${b.id}')}">${bookCover(b)}<div class="info"><h3>${esc(b.titulo)}</h3><div class="by">${esc(b.autor||'Autor não informado')}</div>
     <div class="meta">${meta}</div>
     <span class="tag ${f>0?'in':'out'}">${f} de ${qt} disponível(is)</span>
-    ${emp.map((n,i)=>`<div class="loan"><span>Emprestado para ${loanTagHtml(n)}</span><button class="btn alt sm" onclick="event.stopPropagation();ret('${b.id}',${i})">Devolvido</button></div>`).join('')}
+    ${emp.map((n,i)=>`<div class="loan"><span>Emprestado para ${loanTagHtml(n)}</span><span class="loan-acts"><button type="button" class="btn alt sm" onclick="event.stopPropagation();renewLoan('${b.id}',${i})">+15d</button><button type="button" class="btn alt sm" onclick="event.stopPropagation();ret('${b.id}',${i})">Devolvido</button></span></div>`).join('')}
     <div class="acts">${f>0?`<button class="btn sm" onclick="event.stopPropagation();lend('${b.id}')">Emprestar</button>`:''}<button class="btn alt sm" onclick="event.stopPropagation();editBook('${b.id}')">Editar</button><button class="btn alt sm danger" onclick="event.stopPropagation();del('${b.id}')">Remover</button></div></div></article>`}).join('')
     :`<div class="empty">${nTit?'Nenhum livro encontrado com esses filtros.':'O acervo está vazio. Cadastre o primeiro livro na aba Cadastrar.'}</div>`;
-  if(openBookId&&!editMode)renderModal(openBookId);
+  if(openBookId&&!editMode&&!lendMode)renderModal(openBookId);
   renderHome();
 }
 function renderHome(){
   if(!$('homeKpis'))return;
   const nTit=books.length,nEx=books.reduce((s,b)=>s+(b.qtd||0),0),nOut=books.reduce((s,b)=>s+(b.emp||[]).length,0),nDisp=Math.max(0,nEx-nOut);
   $('homeHello').textContent=currentUser?'Olá, '+currentUser:'Bem-vindo';
-  $('homeDate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
-  $('homeKpis').innerHTML=[['Títulos',nTit],['Exemplares',nEx],['Disponíveis',nDisp],['Emprestados',nOut]].map(([k,v])=>`<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join('');
+  const dt=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+  $('homeDate').textContent=dt?dt.charAt(0).toUpperCase()+dt.slice(1):'';
   const loans=[];
   books.forEach(b=>(b.emp||[]).forEach((p,i)=>loans.push({b,p,i,inf:loanInfo(p)})));
   loans.sort((a,b)=>b.inf.atraso-a.inf.atraso||(a.inf.retiradoEm||0)-(b.inf.retiradoEm||0));
-  $('homeLoans').innerHTML=loans.length?loans.map(({b,p,i})=>`<div class="loan"><span><b>${esc(b.titulo)}</b> — com ${loanTagHtml(p)}</span><button type="button" class="btn alt sm" onclick="ret('${b.id}',${i})">Devolvido</button></div>`).join(''):'<p class="msg">Nenhum livro emprestado no momento.</p>';
+  const nLate=loans.filter(x=>x.inf.atraso>0).length;
+  $('homeKpis').innerHTML=[
+    ['Títulos',nTit,'all',''],
+    ['Exemplares',nEx,'all',''],
+    ['Disponíveis',nDisp,'in',''],
+    ['Emprestados',nOut,'out',nLate?'warn':'']
+  ].map(([k,v,f,cls])=>`<button type="button" class="kpi${cls?' '+cls:''}" onclick="goCatalog('${f}')"><b>${v}</b><span>${k}</span></button>`).join('');
+  if($('homeLoansTitle'))$('homeLoansTitle').textContent=loans.length?`Emprestados agora (${loans.length}${nLate?' · '+nLate+' atrasado'+(nLate>1?'s':''):''})`:'Emprestados agora';
+  const topLoans=loans.slice(0,6);
+  $('homeLoans').innerHTML=topLoans.length?topLoans.map(({b,p,i,inf})=>`<div class="loan${inf.atraso>0?' late':''}"><span class="loan-main"><button type="button" class="loan-link" onclick="openBook('${b.id}')">${esc(b.titulo)}</button> — com ${loanTagHtml(p)}</span><span class="loan-acts"><button type="button" class="btn alt sm" onclick="renewLoan('${b.id}',${i})">+15d</button><button type="button" class="btn alt sm" onclick="ret('${b.id}',${i})">Devolvido</button></span></div>`).join(''):'<p class="msg">Nenhum livro emprestado no momento.</p>';
+  if($('homeLoansMore'))$('homeLoansMore').hidden=loans.length<=6;
   const rec=logs.slice(0,5);
   $('homeLogs').innerHTML=rec.length?rec.map(l=>`<div class="log-row"><div class="log-top"><span class="log-act">${esc(l.acao)}</span><span class="log-time">${new Date(l.criado).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span></div><div class="log-det">${l.livro?'<b>'+esc(l.livro)+'</b> — ':''}${esc(l.detalhes)}</div><div class="log-who">Por ${esc(l.usuario||'Sistema')}</div></div>`).join(''):'<p class="msg">Nenhuma atividade registrada ainda.</p>';
 }
@@ -868,11 +877,11 @@ function bookCover(b){
 }
 function openBook(id){
   if(!books.some(b=>b.id===id))return;
-  openBookId=id;editMode=false;renderModal(id);$('bookModal').hidden=false;
+  openBookId=id;editMode=false;lendMode=false;renderModal(id);$('bookModal').hidden=false;
 }
 function editBook(id){
   const b=books.find(x=>x.id===id);if(!b)return;
-  openBookId=id;editMode=true;editPhoto=b.foto||'';renderModal(id);$('bookModal').hidden=false;
+  openBookId=id;editMode=true;lendMode=false;editPhoto=b.foto||'';renderModal(id);$('bookModal').hidden=false;
   const t=$('eTitulo');if(t)t.focus();
 }
 function clearEditCover(){
@@ -880,11 +889,41 @@ function clearEditCover(){
   const rm=$('eRmCov');if(rm)rm.hidden=true;
   const f=$('eFoto');if(f)f.value='';
 }
-function closeBook(){openBookId='';editMode=false;editPhoto='';$('bookModal').hidden=true}
+function closeBook(){openBookId='';editMode=false;lendMode=false;editPhoto='';$('bookModal').hidden=true}
+function knownBorrowers(){
+  const s=new Set(Object.keys(getUsers()));
+  books.forEach(b=>(b.emp||[]).forEach(p=>{const n=normLoan(p).nome;if(n)s.add(n)}));
+  logs.forEach(l=>{if(l.acao==='Empréstimo'&&l.detalhes){const m=String(l.detalhes).match(/^Emprestado para (.+?) \(/);if(m&&m[1])s.add(m[1].trim())}});
+  return [...s].filter(Boolean).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+}
+function setLendPrazo(d){
+  if($('lendPrazo'))$('lendPrazo').value=String(d);
+  [7,15,30].forEach(x=>{const el=$('pz'+x);if(el)el.classList.toggle('on',x===d)});
+}
 function renderModal(id){
   const b=books.find(x=>x.id===id);
   if(!b){closeBook();return}
   const emp=b.emp||[],f=free(b),qt=b.qtd||1;
+  if(lendMode){
+    const ppl=knownBorrowers();
+    $('bookSheet').innerHTML=`<div class="sheet-hd"><span id="dlgTitle">Registrar empréstimo</span><button class="xbtn" onclick="closeBook()" aria-label="Fechar">✕</button></div>
+    <div style="margin-bottom:12px"><h2 style="margin:0;font-size:1.12rem">${esc(b.titulo)}</h2><div class="by" style="margin:2px 0 0">${esc(b.autor||'Autor não informado')} · ${f} de ${qt} disponível(is)</div></div>
+    <form onsubmit="event.preventDefault();saveLend('${b.id}')">
+    <label for="lendNome">Quem está levando?</label>
+    <input id="lendNome" list="borrowersList" placeholder="Ex.: Irmã Maria" autocomplete="off" required>
+    <datalist id="borrowersList">${ppl.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+    <label for="lendPrazo">Prazo de devolução (em dias)</label>
+    <div class="prazo-chips">
+    <button type="button" class="chip" id="pz7" onclick="setLendPrazo(7)">7 dias</button>
+    <button type="button" class="chip on" id="pz15" onclick="setLendPrazo(15)">15 dias</button>
+    <button type="button" class="chip" id="pz30" onclick="setLendPrazo(30)">30 dias</button>
+    </div>
+    <input id="lendPrazo" type="number" min="1" max="365" value="15" inputmode="numeric" oninput="setLendPrazo(+this.value)">
+    <p class="msg warn" id="lendMsg"></p>
+    <div class="acts"><button type="submit" class="btn sm">Confirmar empréstimo</button><button type="button" class="btn alt sm" onclick="openBook('${b.id}')">Cancelar</button></div>
+    </form>`;
+    return;
+  }
   if(editMode){
     $('bookSheet').innerHTML=`<div class="sheet-hd"><span id="dlgTitle">Editar obra</span><button class="xbtn" onclick="closeBook()" aria-label="Fechar">✕</button></div>
     <form onsubmit="event.preventDefault();saveEdit('${b.id}')">
@@ -930,7 +969,7 @@ function renderModal(id){
   <span class="tag ${f>0?'in':'out'}">${f>0?'Disponível':'Todos emprestados'}</span></div></div>
   <dl class="kv">${info.map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
   ${b.sinopse?`<div class="syn"><b>Sinopse</b><p>${esc(b.sinopse)}</p></div>`:(b.isbn?`<button class="btn alt sm" id="synBtn" onclick="fetchSynopsis('${b.id}')">Buscar sinopse</button>`:'')}
-  ${emp.map((n,i)=>`<div class="loan"><span>Emprestado para ${loanTagHtml(n)}</span><button class="btn alt sm" onclick="ret('${b.id}',${i})">Devolvido</button></div>`).join('')}
+  ${emp.map((n,i)=>`<div class="loan"><span>Emprestado para ${loanTagHtml(n)}</span><span class="loan-acts"><button type="button" class="btn alt sm" onclick="renewLoan('${b.id}',${i})">Renovar +15d</button><button type="button" class="btn alt sm" onclick="ret('${b.id}',${i})">Devolvido</button></span></div>`).join('')}
   <div class="acts">${f>0?`<button class="btn sm" onclick="lend('${b.id}')">Emprestar</button>`:''}<button class="btn alt sm" onclick="editBook('${b.id}')">Editar</button><button class="btn alt sm danger" onclick="del('${b.id}')">Remover</button><button class="btn alt sm" onclick="closeBook()">Fechar</button></div>`;
 }
 async function lookupEdit(){
@@ -1016,10 +1055,31 @@ async function fetchSynopsis(id){
 if(typeof addEventListener==='function')addEventListener('keydown',e=>{if(e.key==='Escape'&&openBookId)closeBook()});
 async function mut(id,fn){const b=books.find(x=>x.id===id);try{await fn(b)}catch(e){alert('Sem permissão para alterar o acervo.')}}
 function lend(id){
-  const n=(prompt('Quem está levando o livro?')||'').trim();if(!n)return;
-  const prazo=Math.max(1,parseInt(prompt('Prazo de devolução (em dias):','15')||'15',10)||15);
+  const b=books.find(x=>x.id===id);
+  if(!b||free(b)<=0){toast('Nenhum exemplar disponível');return}
+  openBookId=id;editMode=false;lendMode=true;renderModal(id);$('bookModal').hidden=false;
+  const inp=$('lendNome');if(inp)inp.focus();
+}
+async function saveLend(id){
+  const n=$('lendNome')?$('lendNome').value.trim():'';
+  if(!n){if($('lendMsg'))say('lendMsg','Informe quem está levando o livro.','warn');if($('lendNome'))$('lendNome').focus();return}
+  const prazo=Math.max(1,parseInt($('lendPrazo')?$('lendPrazo').value:'15',10)||15);
   const entry={nome:n,retiradoEm:Date.now(),prazo};
-  mut(id,async b=>{await col.doc(id).update({emp:[...(b.emp||[]),entry]});await addLog('Empréstimo','Emprestado para '+n+' (prazo: '+prazo+' dias)',b.titulo)}).then(()=>toast('Empréstimo registrado'));
+  lendMode=false;
+  await mut(id,async b=>{await col.doc(id).update({emp:[...(b.emp||[]),entry]});await addLog('Empréstimo','Emprestado para '+n+' (prazo: '+prazo+' dias)',b.titulo)});
+  toast('Empréstimo registrado ✔');
+}
+async function renewLoan(id,i,extra=15){
+  await mut(id,async b=>{
+    const a=[...(b.emp||[])];
+    if(!a[i])return;
+    const l=normLoan(a[i]),inf=loanInfo(a[i]);
+    const nextPrazo=l.retiradoEm?Math.max(l.prazo+extra,inf.dias+extra):extra;
+    a[i]={nome:l.nome,retiradoEm:l.retiradoEm||Date.now(),prazo:nextPrazo};
+    await col.doc(id).update({emp:a});
+    await addLog('Empréstimo','Renovou empréstimo de '+(l.nome||'leitor')+' (+'+extra+' dias)',b.titulo);
+    toast('Prazo renovado (+'+extra+' dias) ✔');
+  });
 }
 function ret(id,i){
   mut(id,async b=>{
