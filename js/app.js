@@ -163,9 +163,11 @@ async function supaReq(path,opts={},retried=false){
     if(fresh&&fresh!==tok)return supaReq(path,opts,true);
   }
   if(!res.ok){
-    if(!tok&&!supaLastErr)supaLastErr='Sessão de nuvem inativa. Clique em Sair e entre novamente com Google.';
-    else if(!supaLastErr)supaLastErr=res.status===401||res.status===403?'Acesso negado pelo Supabase (HTTP '+res.status+'). Verifique o provedor Google / RLS.':'Erro Supabase HTTP '+res.status;
-    throw new Error('Supabase HTTP '+res.status);
+    let det='';
+    try{const et=res.text?await res.text():'',ej=et?JSON.parse(et):null;det=ej&&(ej.message||ej.error||ej.code)?' ['+(ej.code?ej.code+': ':'')+(ej.message||ej.error)+']':(et?' ['+et.slice(0,120)+']':'')}catch(e){}
+    if(!tok&&!supaLastErr)supaLastErr='Sessão de nuvem inativa. Clique em Sair e entre novamente com Google.'+det;
+    else if(!supaLastErr)supaLastErr=(res.status===401||res.status===403?'Acesso negado pelo Supabase (HTTP '+res.status+').':'Erro Supabase HTTP '+res.status)+det;
+    throw new Error('Supabase HTTP '+res.status+det);
   }
   supaLastErr='';
   const txt=await res.text();
