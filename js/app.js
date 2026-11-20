@@ -76,28 +76,109 @@ function createIdbCol(storeName,legacyKey){
     }
   };
 }
-let supaLastSync=0,supaTimer=null,supaSyncing=false;
+let supaLastSync=0,supaTimer=null,supaSyncing=false,supaLastErr='';
+function hasAppSupaCfg(){return !!(getAppKey('SUPABASE_URL')&&getAppKey('SUPABASE_KEY'))}
 function getSupaCfg(){
   try{
-    const cu=getAppKey('SUPABASE_URL'),ck=getAppKey('SUPABASE_KEY');if(cu&&ck)return {url:cu.replace(/\/+$/,''),key:ck};
+    const cu=getAppKey('SUPABASE_URL'),ck=getAppKey('SUPABASE_KEY');if(cu&&ck)return {url:cu.replace(/\/+$/,''),key:ck,fromApp:true};
     const raw=localStorage.getItem('biblioteca_supabase');
     if(!raw)return null;
     const p=JSON.parse(raw);
-    return p&&p.url&&p.key?{url:String(p.url).replace(/\/+$/,''),key:String(p.key).trim()}:null;
+    return p&&p.url&&p.key?{url:String(p.url).replace(/\/+$/,''),key:String(p.key).trim(),fromApp:false}:null;
   }catch(e){return null}
 }
-async function supaReq(path,opts={}){
+function getSupaSession(){
+  try{return JSON.parse(localStorage.getItem('biblioteca_supa_session')||'null')}catch(e){return null}
+}
+function saveSupaSession(sess){
+  try{
+    if(!sess||!sess.access_token){localStorage.removeItem('biblioteca_supa_session');return null}
+    const exp=sess.expires_at?(+sess.expires_at<1e12?+sess.expires_at*1000:+sess.expires_at):(Date.now()+((+sess.expires_in||3600)*1000));
+    const norm={access_token:String(sess.access_token),refresh_token:String(sess.refresh_token||''),expires_at:exp,email:String((sess.user&&sess.user.email)||sess.email||'')};
+    localStorage.setItem('biblioteca_supa_session',JSON.stringify(norm));
+    return norm;
+  }catch(e){return null}
+}
+async function signInSupabaseWithGoogle(idToken){
+  const cfg=getSupaCfg();
+  if(!cfg)return '';
+  const tok=String(idToken||(typeof localStorage!=='undefined'&&localStorage.getItem('biblioteca_google_id_token'))||'').trim();
+  if(!tok)return '';
+  try{
+    const res=await fetch(cfg.url+'/auth/v1/token?grant_type=id_token',{
+      method:'POST',
+      headers:{apikey:cfg.key,'Content-Type':'application/json'},
+      body:JSON.stringify({provider:'google',id_token:tok})
+    });
+    if(!res.ok)return '';
+    const txt=await res.text(),data=txt?JSON.parse(txt):null;
+    const saved=saveSupaSession(data);
+    return saved?saved.access_token:'';
+  }catch(e){return ''}
+}
+async function refreshSupaSession(){
+  const cfg=getSupaCfg(),sess=getSupaSession();
+  if(!cfg)return '';
+  if(!sess||!sess.refresh_token)return signInSupabaseWithGoogle();
+  try{
+    const res=await fetch(cfg.url+'/auth/v1/token?grant_type=refresh_token',{
+      method:'POST',
+      headers:{apikey:cfg.key,'Content-Type':'application/json'},
+      body:JSON.stringify({refresh_token:sess.refresh_token})
+    });
+    if(!res.ok){saveSupaSession(null);return signInSupabaseWithGoogle()}
+    const txt=await res.text(),data=txt?JSON.parse(txt):null;
+    const saved=saveSupaSession(data);
+    return saved?saved.access_token:'';
+  }catch(e){return ''}
+}
+async function getValidSupaToken(forceRefresh=false){
+  const sess=getSupaSession();
+  if(!forceRefresh&&sess&&sess.access_token&&(!sess.expires_at||sess.expires_at-Date.now()>60000))return sess.access_token;
+  if(sess&&sess.refresh_token)return refreshSupaSession();
+  return signInSupabaseWithGoogle();
+}
+function signOutSupabase(){
+  const cfg=getSupaCfg(),sess=getSupaSession();
+  try{localStorage.removeItem('biblioteca_supa_session');localStorage.removeItem('biblioteca_google_id_token')}catch(e){}
+  if(cfg&&sess&&sess.access_token){
+    fetch(cfg.url+'/auth/v1/logout',{method:'POST',headers:{apikey:cfg.key,Authorization:'Bearer '+sess.access_token}}).catch(()=>{});
+  }
+}
+async function supaReq(path,opts={},retried=false){
   const cfg=getSupaCfg();
   if(!cfg)return null;
-  const res=await fetch(cfg.url+'/rest/v1/'+path,{...opts,headers:{apikey:cfg.key,Authorization:'Bearer '+cfg.key,'Content-Type':'application/json',...(opts.headers||{})}});
-  if(!res.ok)throw new Error('Supabase HTTP '+res.status);
+  const tok=await getValidSupaToken(false);
+  const bearer=tok||cfg.key;
+  const res=await fetch(cfg.url+'/rest/v1/'+path,{...opts,headers:{apikey:cfg.key,Authorization:'Bearer '+bearer,'Content-Type':'application/json',...(opts.headers||{})}});
+  if(res.status===401&&!retried){
+    const fresh=await getValidSupaToken(true);
+    if(fresh&&fresh!==bearer)return supaReq(path,opts,true);
+  }
+  if(!res.ok){
+    supaLastErr=res.status===401||res.status===403?'Acesso negado pelo Supabase (HTTP '+res.status+'). Verifique o provedor Google / RLS.':'Erro Supabase HTTP '+res.status;
+    throw new Error('Supabase HTTP '+res.status);
+  }
+  supaLastErr='';
   const txt=await res.text();
   return txt?JSON.parse(txt):null;
 }
 function createSupaCol(table,baseCol){
   let localItems=[];
-  const upsertRemote=(id,doc)=>supaReq(table+'?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id,data:doc,updated_at:Date.now()})}).catch(()=>{});
-  const deleteRemote=(id)=>supaReq(table+'?id=eq.'+encodeURIComponent(id),{method:'DELETE'}).catch(()=>{});
+  const syncKey='biblioteca_synced_ids_'+table;
+  const getSynced=()=>{try{return new Set(JSON.parse(localStorage.getItem(syncKey)||'[]'))}catch(e){return new Set()}};
+  const saveSynced=s=>{try{localStorage.setItem(syncKey,JSON.stringify([...s]))}catch(e){}};
+  const markSynced=id=>{const s=getSynced();s.add(id);saveSynced(s)};
+  const unmarkSynced=id=>{const s=getSynced();s.delete(id);saveSynced(s)};
+  const upsertRemote=(id,doc)=>{
+    const ts=+doc.updated_at||Date.now();
+    const payload={...doc,id,updated_at:ts};
+    return supaReq(table+'?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id,data:payload,updated_at:ts})}).then(()=>markSynced(id)).catch(()=>{});
+  };
+  const deleteRemote=(id)=>{
+    if(table==='logs')return Promise.resolve();
+    return supaReq(table+'?id=eq.'+encodeURIComponent(id),{method:'DELETE'}).then(()=>unmarkSynced(id)).catch(()=>{});
+  };
   return {
     orderBy(f,d){
       const q=baseCol.orderBy(f,d);
@@ -113,27 +194,54 @@ function createSupaCol(table,baseCol){
     doc(id){
       const bDoc=baseCol.doc(id);
       return {
-        async set(data){await bDoc.set(data);upsertRemote(id,{id,...data})},
-        async update(patch){
-          await bDoc.update(patch);
-          const cur=localItems.find(x=>x.id===id);
-          if(cur)upsertRemote(id,{...cur,...patch,id});
+        async set(data){
+          const ts=+data.updated_at||Date.now(),next={...data,id,updated_at:ts};
+          await bDoc.set(next);
+          await upsertRemote(id,next);
         },
-        async delete(){await bDoc.delete();deleteRemote(id)}
+        async update(patch){
+          const ts=+patch.updated_at||Date.now();
+          await bDoc.update({...patch,updated_at:ts});
+          const cur=localItems.find(x=>x.id===id);
+          if(cur)await upsertRemote(id,{...cur,...patch,id,updated_at:ts});
+        },
+        async delete(){
+          unmarkSynced(id);
+          await bDoc.delete();
+          await deleteRemote(id);
+        }
       };
     },
     async pull(){
-      const rows=await supaReq(table+'?select=id,data,updated_at');
+      const query=table==='logs'?'logs?select=id,data,updated_at&order=updated_at.desc&limit=250':table+'?select=id,data,updated_at';
+      const rows=await supaReq(query);
       if(!Array.isArray(rows))return;
-      const remoteIds=new Set();
+      const synced=getSynced();
+      const remoteMap=new Map();
       for(const r of rows){
         if(!r||!r.id||!r.data)continue;
-        remoteIds.add(r.id);
-        await baseCol.doc(r.id).set(r.data);
+        const rTs=+r.updated_at||+r.data.updated_at||0;
+        remoteMap.set(r.id,rTs);
+        synced.add(r.id);
+        const loc=localItems.find(x=>x&&x.id===r.id);
+        const lTs=loc?(+loc.updated_at||+loc.criado||0):-1;
+        if(!loc||rTs>=lTs){
+          await baseCol.doc(r.id).set({...r.data,id:r.id,updated_at:rTs});
+        }else if(lTs>rTs){
+          await upsertRemote(r.id,{...loc,updated_at:lTs});
+        }
       }
-      for(const loc of localItems){
-        if(loc&&loc.id&&!remoteIds.has(loc.id))await upsertRemote(loc.id,loc);
+      for(const loc of [...localItems]){
+        if(!loc||!loc.id||remoteMap.has(loc.id))continue;
+        if(table!=='logs'&&synced.has(loc.id)){
+          synced.delete(loc.id);
+          await baseCol.doc(loc.id).delete();
+        }else{
+          await upsertRemote(loc.id,loc);
+          synced.add(loc.id);
+        }
       }
+      saveSynced(synced);
     }
   };
 }
@@ -145,18 +253,21 @@ async function syncNow(silent=false){
     if(col&&col.pull)await col.pull();
     if(logsCol&&logsCol.pull)await logsCol.pull();
     supaLastSync=Date.now();
+    supaLastErr='';
     if(!silent)toast('Sincronizado com Supabase ✔');
     if($('p4')&&!$('p4').hidden)renderProfile();
   }catch(e){
-    if(!silent)toast('Erro ao sincronizar com Supabase');
+    if(!silent)toast(supaLastErr||'Erro ao sincronizar com Supabase');
+    if($('p4')&&!$('p4').hidden)renderProfile();
   }finally{supaSyncing=false}
 }
 async function saveSupabaseCfg(){
   const url=($('sbUrlInput')&&$('sbUrlInput').value||'').trim().replace(/\/+$/,'');
   const key=($('sbKeyInput')&&$('sbKeyInput').value||'').trim();
-  if(!url||!key){say('sbStatus','Informe a URL e a Anon Key do Supabase.','warn');return}
+  if(!url||!key){say('sbStatus','Informe a URL e a Publishable / Anon Key do Supabase.','warn');return}
   try{localStorage.setItem('biblioteca_supabase',JSON.stringify({url,key}))}catch(e){}
   say('sbStatus','Conectando ao Supabase…');
+  await signInSupabaseWithGoogle();
   await syncNow(false);
   if(supaLastSync){
     await addLog('Perfil','Sincronização Supabase configurada');
@@ -165,8 +276,13 @@ async function saveSupabaseCfg(){
   renderProfile();
 }
 function clearSupabaseCfg(){
-  try{localStorage.removeItem('biblioteca_supabase')}catch(e){}
-  supaLastSync=0;
+  try{
+    localStorage.removeItem('biblioteca_supabase');
+    localStorage.removeItem('biblioteca_supa_session');
+    localStorage.removeItem('biblioteca_synced_ids_livros');
+    localStorage.removeItem('biblioteca_synced_ids_logs');
+  }catch(e){}
+  supaLastSync=0;supaLastErr='';
   if(supaTimer){clearInterval(supaTimer);supaTimer=null}
   if($('sbUrlInput'))$('sbUrlInput').value='';
   if($('sbKeyInput'))$('sbKeyInput').value='';
@@ -226,8 +342,9 @@ function triggerGoogleSetup(){
   if(cid&&g){initGoogleSignIn();try{g.prompt()}catch(e){}return}
   say('loginMsg',cid?'Login com Google indisponível sem conexão.':'Login com Google ainda não habilitado. Entre com seu nome.','warn');
 }
-function handleGoogleCredential(resp){
-  const p=parseJwt(resp&&resp.credential);
+async function handleGoogleCredential(resp){
+  const idTok=String(resp&&resp.credential||'').trim();
+  const p=parseJwt(idTok);
   const nome=String(p.name||p.email||'').trim();
   if(!nome){say('loginMsg','Não foi possível ler os dados da conta Google.','warn');return}
   const email=String(p.email||'').trim(),foto=String(p.picture||'').trim();
@@ -236,9 +353,16 @@ function handleGoogleCredential(resp){
   users[nome]={...prev,email,foto,tipo:'google',criado:prev.criado||Date.now()};
   saveUsers(users);
   currentUser=nome;
-  try{localStorage.setItem('biblioteca_user',nome)}catch(e){}
+  try{
+    localStorage.setItem('biblioteca_user',nome);
+    if(idTok)localStorage.setItem('biblioteca_google_id_token',idTok);
+  }catch(e){}
   say('loginMsg','');
   renderAuth();tab(0);
+  if(getSupaCfg()&&idTok){
+    await signInSupabaseWithGoogle(idTok);
+    await syncNow(true);
+  }
   addLog('Acesso','Entrou com Google'+(email?' ('+email+')':''));
 }
 let lastGsiW=0,gsiResizeT=0;
@@ -290,6 +414,7 @@ function renderAuth(){
 function logout(){
   const who=currentUser;
   if(who)addLog('Acesso','Saiu do sistema');
+  signOutSupabase();
   currentUser='';lastGsiW=0;
   try{localStorage.removeItem('biblioteca_user')}catch(e){}
   renderAuth();
@@ -367,12 +492,22 @@ function renderProfile(){
   let fn='';try{fn=localStorage.getItem('biblioteca_font')||''}catch(e){}
   if($('fnStd'))$('fnStd').classList.toggle('on',!fn);
   if($('fnLg'))$('fnLg').classList.toggle('on',fn==='lg');
-  const sb=getSupaCfg();
+  const sb=getSupaCfg(),sess=getSupaSession(),fromApp=hasAppSupaCfg();
+  if($('supaCard'))$('supaCard').hidden=false;
+  if($('sbManualFields'))$('sbManualFields').hidden=fromApp;
+  if($('sbConnectBtn'))$('sbConnectBtn').hidden=fromApp;
   if($('sbUrlInput'))$('sbUrlInput').value=sb?sb.url:'';
   if($('sbKeyInput'))$('sbKeyInput').value=sb?sb.key:'';
   if($('sbSyncBtn'))$('sbSyncBtn').hidden=!sb;
-  if($('sbClearBtn'))$('sbClearBtn').hidden=!sb;
-  if($('sbStatus'))say('sbStatus',sb?(supaLastSync?'Conectado ao Supabase · última sinc: '+new Date(supaLastSync).toLocaleTimeString('pt-BR'):'Supabase configurado'):'Modo local (sem Supabase configurado).',sb?'ok':'');
+  if($('sbClearBtn'))$('sbClearBtn').hidden=!sb||fromApp;
+  if($('sbStatus')){
+    if(supaLastErr)say('sbStatus',supaLastErr,'warn');
+    else if(sb){
+      const authLbl=sess&&sess.access_token?'autenticado via Google':'aguardando sessão Auth';
+      const syncLbl=supaLastSync?' · última sinc: '+new Date(supaLastSync).toLocaleTimeString('pt-BR'):'';
+      say('sbStatus','Conectado ao Supabase ('+authLbl+')'+syncLbl,'ok');
+    }else say('sbStatus','Modo local (sem Supabase configurado).','');
+  }
   const recent=myLogs.slice(0,8);
   $('profLogs').innerHTML=recent.length?recent.map(l=>`<div class="log-row"><div class="log-top"><span class="log-act">${esc(l.acao)}${l.livro?' · '+esc(l.livro):''}</span><span class="log-time">${new Date(l.criado||0).toLocaleString('pt-BR')}</span></div><div class="log-det">${esc(l.detalhes||'')}</div></div>`).join(''):'<p class="msg">Nenhuma atividade registrada ainda para este usuário.</p>';
 }
