@@ -24,6 +24,7 @@ nav button:hover{color:var(--tx)}
 nav button.on{color:var(--tx);font-weight:600;border-bottom-color:var(--ac)}
 nav .n{display:inline-block;padding:0 6px;margin-left:5px;border-radius:2px;background:var(--soft);color:var(--mut);font-size:.75rem;line-height:1.5}
 nav button.on .n{background:var(--ac);color:var(--acx)}
+.nav-ic{display:none}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:3px;padding:16px;margin-bottom:14px}
 .card h2{font:600 1.02rem var(--serif);margin:0 0 8px;color:var(--tx);padding-bottom:8px;border-bottom:1px solid var(--bd)}
 label{display:block;font-size:.78rem;font-weight:500;color:var(--mut);margin:10px 0 4px}
@@ -181,7 +182,18 @@ video{width:100%;border-radius:3px;background:#000;max-height:240px;object-fit:c
 .syn p{margin:0;white-space:pre-line;font-family:var(--serif);font-size:.92rem;line-height:1.55}
 @keyframes fade{from{opacity:0}}
 @keyframes rise{from{transform:translateY(14px);opacity:0}}
-@media (max-width:600px){input,select,textarea,.tools select{font-size:1rem}.tools select{min-height:38px}nav button{min-height:44px;padding:10px 8px}.btn{min-height:44px}.sm{min-height:38px;padding:7px 12px;font-size:.82rem}.chip{min-height:36px;padding:7px 12px}.xbtn{width:38px;height:38px;font-size:1rem}}
+@media (max-width:600px){
+main{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+header{padding-bottom:14px}
+#toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+nav{position:fixed;left:0;right:0;bottom:0;top:auto;margin:0;padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--bd);border-bottom:0;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;background:color-mix(in srgb,var(--card) 94%,transparent);backdrop-filter:blur(12px);box-shadow:0 -4px 16px rgba(28,27,24,.08);z-index:20;overflow:visible}
+nav button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;padding:6px 2px;margin:0;border:0;border-radius:6px;font-size:clamp(.66rem,2.8vw,.74rem);line-height:1.15}
+nav button.on{color:var(--ac);background:color-mix(in srgb,var(--ac) 10%,transparent)}
+.nav-ic{display:block;width:20px;height:20px;flex:0 0 auto}
+.nav-lbl{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+nav .n{position:absolute;top:4px;right:calc(50% - 20px);margin:0;padding:0 5px;min-width:16px;border-radius:999px;font-size:.62rem;font-weight:600;line-height:1.45;text-align:center}
+input,select,textarea,.tools select{font-size:1rem}.tools select{min-height:38px}.btn{min-height:44px}.sm{min-height:38px;padding:7px 12px;font-size:.82rem}.chip{min-height:36px;padding:7px 12px}.xbtn{width:38px;height:38px;font-size:1rem}
+}
 @media (max-width:440px){.bk{gap:10px}.cover{width:60px;height:90px}.hero .cover{width:78px;height:117px}.backup .acts{width:100%}}
 .site-foot{margin-top:32px;padding:14px 0 8px;border-top:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.78rem;color:var(--mut)}
 .site-foot b{color:var(--tx);font-weight:500}

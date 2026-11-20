@@ -15,7 +15,7 @@
 <link rel="icon" type="image/png" sizes="64x64" href="assets/img/icon-64.png">
 <link rel="apple-touch-icon" sizes="192x192" href="assets/img/icon-192.png">
 <script src="https://accounts.google.com/gsi/client" async defer onload="if(typeof initGoogleSignIn==='function')initGoogleSignIn()"></script>
-<link rel="stylesheet" href="css/styles.css?v=1.6.5">
+<link rel="stylesheet" href="css/styles.css?v=1.7.0">
 </head>
 <body>
 <section id="loginView" class="login-wrap" hidden>
@@ -52,7 +52,7 @@
 </details>
 </div>
 </div>
-<p class="login-foot">Suas ações no acervo ficam registradas na aba <b>Log</b> · Versão 1.6.5</p>
+<p class="login-foot">Suas ações no acervo ficam registradas na aba <b>Log</b> · Versão 1.7.0</p>
 </div>
 </section>
 
@@ -65,11 +65,11 @@
 </header>
 <div class="banner" id="dbBanner" hidden>Conectando ao banco de dados…</div>
 <nav role="tablist" aria-label="Navegação principal">
-<button type="button" id="t0" class="on" role="tab" aria-selected="true" aria-controls="p0" onclick="tab(0)">Início</button>
-<button type="button" id="t1" role="tab" aria-selected="false" aria-controls="p1" onclick="tab(1)">Cadastrar</button>
-<button type="button" id="t2" role="tab" aria-selected="false" aria-controls="p2" onclick="tab(2)">Acervo<span class="n" id="navN">0</span></button>
-<button type="button" id="t3" role="tab" aria-selected="false" aria-controls="p3" onclick="tab(3)">Log</button>
-<button type="button" id="t4" role="tab" aria-selected="false" aria-controls="p4" onclick="tab(4)">Perfil</button>
+<button type="button" id="t0" class="on" role="tab" aria-selected="true" aria-controls="p0" onclick="tab(0)"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></svg><span class="nav-lbl">Início</span></button>
+<button type="button" id="t1" role="tab" aria-selected="false" aria-controls="p1" onclick="tab(1)"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span class="nav-lbl">Cadastrar</span></button>
+<button type="button" id="t2" role="tab" aria-selected="false" aria-controls="p2" onclick="tab(2)"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg><span class="nav-lbl">Acervo</span><span class="n" id="navN">0</span></button>
+<button type="button" id="t3" role="tab" aria-selected="false" aria-controls="p3" onclick="tab(3)"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-lbl">Log</span></button>
+<button type="button" id="t4" role="tab" aria-selected="false" aria-controls="p4" onclick="tab(4)"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.8-3.8 5-5.5 8-5.5s6.2 1.7 8 5.5"/></svg><span class="nav-lbl">Perfil</span></button>
 </nav>
 
 <section id="p0" role="tabpanel" aria-labelledby="t0">
@@ -232,7 +232,7 @@
 <div id="profLogs"></div>
 </div>
 </section>
-<footer class="site-foot"><span><b>Biblioteca do Convento</b> · Acervo Comunitário</span><span id="appVersion">Versão 1.6.5</span></footer>
+<footer class="site-foot"><span><b>Biblioteca do Convento</b> · Acervo Comunitário</span><span id="appVersion">Versão 1.7.0</span></footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="bookModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="dlgTitle" onclick="if(event.target===this)closeBook()">
@@ -240,6 +240,6 @@
 </div>
 
 <script src="config/keys.js?v=1.6.2"></script>
-<script src="js/app.js?v=1.6.5"></script>
+<script src="js/app.js?v=1.7.0"></script>
 </body>
 </html>

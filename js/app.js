@@ -539,7 +539,7 @@ async function saveProfile(){
   if(diffs.length)await addLog('Perfil',diffs.join('; '));
   toast('Perfil salvo ✔');
 }
-function tab(n){[0,1,2,3,4].forEach(i=>{$('p'+i).hidden=i!==n;const b=$('t'+i);b.classList.toggle('on',i===n);if(b.setAttribute)b.setAttribute('aria-selected',String(i===n))});if(n===0)renderHome();if(n===2)render();if(n===3)renderLogs();if(n===4)renderProfile()}
+function tab(n){[0,1,2,3,4].forEach(i=>{$('p'+i).hidden=i!==n;const b=$('t'+i);b.classList.toggle('on',i===n);if(b.setAttribute)b.setAttribute('aria-selected',String(i===n))});if(n===0)renderHome();if(n===2)render();if(n===3)renderLogs();if(n===4)renderProfile();if(typeof scrollTo==='function')scrollTo(0,0)}
 function goCatalog(f,q){filt=f||'all';if($('q'))$('q').value=q?String(q).trim():'';if($('homeQ'))$('homeQ').value='';tab(2)}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function say(id,t,c){const m=$(id);m.textContent=t;m.className='msg '+(c||'')}
