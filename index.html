@@ -15,7 +15,7 @@
 <link rel="icon" type="image/png" sizes="64x64" href="assets/img/icon-64.png">
 <link rel="apple-touch-icon" sizes="192x192" href="assets/img/icon-192.png">
 <script src="https://accounts.google.com/gsi/client" async defer onload="if(typeof initGoogleSignIn==='function')initGoogleSignIn()"></script>
-<link rel="stylesheet" href="css/styles.css?v=1.7.0">
+<link rel="stylesheet" href="css/styles.css?v=1.8.2">
 </head>
 <body>
 <section id="loginView" class="login-wrap" hidden>
@@ -52,7 +52,7 @@
 </details>
 </div>
 </div>
-<p class="login-foot">Suas ações no acervo ficam registradas na aba <b>Log</b> · Versão 1.7.0</p>
+<p class="login-foot">Suas ações no acervo ficam registradas na aba <b>Log</b> · Versão 1.8.2</p>
 </div>
 </section>
 
@@ -75,8 +75,13 @@
 <section id="p0" role="tabpanel" aria-labelledby="t0">
 <div class="card">
 <div class="home-head">
+<div class="home-head-row">
+<div>
 <h2 id="homeHello">Olá</h2>
 <p class="msg" id="homeDate"></p>
+</div>
+<button type="button" class="chip" id="whatsNewBtn" onclick="openWhatsNew()">✦ Novidades v1.8.2</button>
+</div>
 </div>
 <form id="homeSearchForm" class="search home-search" onsubmit="event.preventDefault();goCatalog('all',$('homeQ').value)">
 <span>⌕</span>
@@ -84,7 +89,8 @@
 </form>
 <div class="kpi-grid" id="homeKpis"></div>
 <div class="home-acts">
-<button type="button" class="btn" onclick="goCatalog('all')">Consultar acervo</button>
+<button type="button" class="btn" onclick="startLendFlow()">Emprestar livro</button>
+<button type="button" class="btn alt" onclick="goCatalog('all')">Consultar acervo</button>
 <button type="button" class="btn alt" onclick="tab(1)">Cadastrar livro</button>
 </div>
 </div>
@@ -172,6 +178,7 @@
 <option value="Edição">Edição</option>
 <option value="Empréstimo">Empréstimo</option>
 <option value="Devolução">Devolução</option>
+<option value="Reserva">Reserva</option>
 <option value="Remoção">Remoção</option>
 <option value="Importação">Importação</option>
 <option value="Backup">Backup</option>
@@ -192,6 +199,10 @@
 </div>
 </div>
 <div class="prof-kpis" id="profKpis"></div>
+</div>
+<div class="card" id="profLoansCard">
+<h3 id="profLoansTitle" style="margin-top:0">Livros comigo agora</h3>
+<div id="profLoans"></div>
 </div>
 <div class="card">
 <h3 style="margin-top:0">Dados do perfil</h3>
@@ -232,14 +243,32 @@
 <div id="profLogs"></div>
 </div>
 </section>
-<footer class="site-foot"><span><b>Biblioteca do Convento</b> · Acervo Comunitário</span><span id="appVersion">Versão 1.7.0</span></footer>
+<footer class="site-foot"><span><b>Biblioteca do Convento</b> · Acervo Comunitário</span><button type="button" class="ver-btn" id="appVersion" onclick="openWhatsNew()" title="Ver novidades desta versão">Versão 1.8.2 · Novidades</button></footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="bookModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="dlgTitle" onclick="if(event.target===this)closeBook()">
 <div class="sheet" id="bookSheet"></div>
 </div>
+<div id="newsModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="newsTitle" onclick="if(event.target===this)closeWhatsNew()">
+<div class="sheet" id="newsSheet">
+<div class="sheet-hd"><span id="newsTitle">Novidades da Versão 1.8.2</span><button type="button" class="xbtn" onclick="closeWhatsNew()" aria-label="Fechar">✕</button></div>
+<h2 style="margin:0 0 4px;font-size:1.18rem">O que há de novo na Biblioteca</h2>
+<p class="msg" style="margin:0 0 10px">Melhorias pensadas para o uso no celular e no fluxo de empréstimos:</p>
+<div class="news-list">
+<div class="news-item"><b>📱 Tab Bar no celular &amp; Modo Offline (PWA)</b><span>Barra de navegação fixa na parte inferior da tela no celular e funcionamento offline completo do aplicativo instalado.</span></div>
+<div class="news-item"><b>🤝 Fluxo rápido de empréstimo e navegação</b><span>Atalho <b>Emprestar livro</b> direto na Home, chips de leitores em 1 toque, data em que o livro foi retirado, previsão de devolução ao vivo e retorno automático após confirmar.</span></div>
+<div class="news-item"><b>📷 Scanner de código de barras no iPhone e Android</b><span>Leitura de ISBN pela câmera agora compatível também com o Safari do iOS e iPadOS.</span></div>
+<div class="news-item"><b>🔎 Busca e sinopse por Título (obras sem ISBN)</b><span>Complete sinopse, capa, editora, ano e categoria de livros antigos usando apenas título e autor — no cadastro e na edição.</span></div>
+<div class="news-item"><b>🙋 Atalho “Para mim” &amp; “Livros comigo agora”</b><span>Retire ou reserve livros para você com 1 toque e veja na aba Perfil todos os exemplares que estão com você.</span></div>
+<div class="news-item"><b>⏳ Fila de Reserva e filtros de atraso</b><span>Quando todos os exemplares estiverem emprestados, toque em <b>Reservar</b>. Na devolução, o sistema avisa quem é o próximo da fila.</span></div>
+<div class="news-item"><b>↩️ Botão “Desfazer” ao devolver &amp; exclusão segura</b><span>Desfaça devoluções acidentais pelo aviso na parte inferior da tela e confirme remoções dentro do próprio modal.</span></div>
+<div class="news-item"><b>📚 Classificação inteligente e soma de duplicatas</b><span>Reconhecimento automático das categorias do acervo em português e soma de exemplares ao cadastrar títulos já existentes.</span></div>
+</div>
+<div class="acts" style="margin-top:12px"><button type="button" class="btn" onclick="closeWhatsNew()">Entendi</button></div>
+</div>
+</div>
 
 <script src="config/keys.js?v=1.6.2"></script>
-<script src="js/app.js?v=1.7.0"></script>
+<script src="js/app.js?v=1.8.2"></script>
 </body>
 </html>

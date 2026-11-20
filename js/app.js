@@ -1,5 +1,6 @@
 const $=id=>document.getElementById(id);
-let books=[],logs=[],col=null,logsCol=null,photo='',lookupSeq=0,pendingMeta={},openBookId='',editMode=false,lendMode=false,editPhoto='',currentUser='';
+const APP_VERSION='1.8.2';
+let books=[],logs=[],col=null,logsCol=null,photo='',lookupSeq=0,pendingMeta={},openBookId='',editMode=false,lendMode=false,reserveMode=false,delMode=false,modalOrigin='list',lendPrefill='',lastReturned=null,editPhoto='',currentUser='';
 let filt='all';
 const COLORS=['#5a3a22','#3f4f2f','#4a3a2a','#2f4046','#6b4a2a','#46402f','#503a30'];
 let view='list';try{view=localStorage.getItem('biblioteca_view')||'list'}catch(e){}
@@ -405,6 +406,9 @@ if(typeof addEventListener==='function')addEventListener('resize',()=>{
   clearTimeout(gsiResizeT);
   gsiResizeT=setTimeout(initGoogleSignIn,150);
 });
+function openWhatsNew(){const m=$('newsModal');if(m)m.hidden=false}
+function closeWhatsNew(){const m=$('newsModal');if(m)m.hidden=true;try{localStorage.setItem('biblioteca_seen_version',APP_VERSION)}catch(e){}}
+function maybeShowWhatsNew(){if(!currentUser)return;try{if(localStorage.getItem('biblioteca_seen_version')!==APP_VERSION)openWhatsNew()}catch(e){}}
 function renderAuth(){
   const logged=!!currentUser;
   $('loginView').hidden=logged;
@@ -417,6 +421,7 @@ function renderAuth(){
       else{av.hidden=true;av.removeAttribute('src')}
     }
     renderHome();
+    maybeShowWhatsNew();
     return;
   }
   initGoogleSignIn();
@@ -492,6 +497,10 @@ function renderProfile(){
   const myLogs=logs.filter(l=>l.usuario===currentUser);
   const myLoans=myLogs.filter(l=>l.acao==='Empréstimo').length;
   $('profKpis').innerHTML=`<div class="kpi"><b>${myBooks}</b><span>Obras cadastradas</span></div><div class="kpi"><b>${myLoans}</b><span>Empréstimos feitos</span></div><div class="kpi"><b>${myLogs.length}</b><span>Registros no log</span></div>`;
+  const mine=[],meLow=currentUser.toLowerCase();
+  books.forEach(b=>(b.emp||[]).forEach((p,i)=>{const inf=loanInfo(p);if((inf.nome||'').toLowerCase()===meLow)mine.push({b,p,i,inf})}));
+  if($('profLoansTitle'))$('profLoansTitle').textContent=mine.length?`Livros comigo agora (${mine.length})`:'Livros comigo agora';
+  if($('profLoans'))$('profLoans').innerHTML=mine.length?mine.map(({b,p,i,inf})=>`<div class="loan${inf.atraso>0?' late':''}"><span class="loan-main"><button type="button" class="loan-link" onclick="openBook('${b.id}')">${esc(b.titulo)}</button> · ${loanTagHtml(p)}</span><span class="loan-acts"><button type="button" class="btn alt sm" onclick="renewLoan('${b.id}',${i})">+15d</button><button type="button" class="btn alt sm" onclick="ret('${b.id}',${i})">Devolvido</button></span></div>`).join(''):'<p class="msg">Você não possui nenhum livro emprestado no momento.</p>';
   $('profNomeInput').value=currentUser;
   $('profRoleInput').value=u.role||'';
   say('profMsg','');
@@ -541,6 +550,7 @@ async function saveProfile(){
 }
 function tab(n){[0,1,2,3,4].forEach(i=>{$('p'+i).hidden=i!==n;const b=$('t'+i);b.classList.toggle('on',i===n);if(b.setAttribute)b.setAttribute('aria-selected',String(i===n))});if(n===0)renderHome();if(n===2)render();if(n===3)renderLogs();if(n===4)renderProfile();if(typeof scrollTo==='function')scrollTo(0,0)}
 function goCatalog(f,q){filt=f||'all';if($('q'))$('q').value=q?String(q).trim():'';if($('homeQ'))$('homeQ').value='';tab(2)}
+function startLendFlow(){goCatalog('in','');if($('q'))$('q').focus();toast('Escolha um livro disponível para emprestar')}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function say(id,t,c){const m=$(id);m.textContent=t;m.className='msg '+(c||'')}
 function normIsbn(s){return String(s||'').toUpperCase().replace(/[^0-9X]/g,'')}
@@ -593,10 +603,31 @@ function pickPhoto(inp){
 function pickEditPhoto(inp){
   resizePhoto(inp,url=>{editPhoto=url;const p=$('ePrev');if(p){p.src=url;p.hidden=false}const rm=$('eRmCov');if(rm)rm.hidden=false});
 }
-let stream=null,scanning=false;
+let stream=null,scanning=false,bdPromise=null;
+function ensureBarcodeDetector(){
+  if(typeof window!=='undefined'&&'BarcodeDetector' in window)return Promise.resolve(true);
+  if(typeof document==='undefined'||!document.createElement)return Promise.resolve(false);
+  return bdPromise||(bdPromise=new Promise(res=>{
+    const s=document.createElement('script');
+    s.src='https://fastly.jsdelivr.net/npm/barcode-detector@2/dist/umd/ponyfill.min.js';
+    s.onload=()=>{
+      if(typeof window!=='undefined'&&!('BarcodeDetector' in window)){
+        const poly=(window.BarcodeDetectorPolyfill&&window.BarcodeDetectorPolyfill.BarcodeDetector)||window.BarcodeDetectorPonyfill;
+        if(poly)window.BarcodeDetector=poly;
+      }
+      res(typeof window!=='undefined'&&'BarcodeDetector' in window);
+    };
+    s.onerror=()=>res(false);
+    if(document.head)document.head.appendChild(s);else res(false);
+  }));
+}
 async function startScan(){
   if(scanning){stopScan();return}
-  if(!('BarcodeDetector' in window)){say('scanMsg','Este navegador não lê códigos de barras. Digite o ISBN abaixo (use o Chrome no Android para escanear).','warn');return}
+  if(!('BarcodeDetector' in window)){
+    say('scanMsg','Preparando leitor de câmera…');
+    const ok=await ensureBarcodeDetector();
+    if(!ok){say('scanMsg','Este navegador não pôde iniciar o leitor de código de barras. Digite o ISBN ou busque pelo título.','warn');return}
+  }
   try{
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
   }catch(e){say('scanMsg','Não foi possível abrir a câmera. Permita o acesso ou digite o ISBN.','warn');return}
@@ -942,24 +973,35 @@ async function readPhoto(){
   }catch(e){say('saveMsg','Não foi possível ler a capa agora. Preencha à mão.','warn')}
   b.disabled=false;b.textContent='Ler título e autor da foto';
 }
+function normTitleKey(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim()}
 async function save(){
   const titulo=$('titulo').value.trim();
   if(!col){say('saveMsg','Sem conexão com o banco de dados.','warn');return}
   if(!titulo){say('saveMsg','Informe ao menos o título.','warn');return}
-  const categoria=$('categoria').value.trim(),sinopse=$('sinopse').value.trim(),isbn=normIsbn($('isbn').value),qtd=Math.max(1,+$('qtd').value||1);
+  const autor=$('autor').value.trim(),categoria=$('categoria').value.trim(),sinopse=$('sinopse').value.trim(),isbn=normIsbn($('isbn').value),qtd=Math.max(1,+$('qtd').value||1);
   const meta={editora:($('editora')?$('editora').value.trim():pendingMeta.editora)||'',ano:($('ano')?$('ano').value.trim():pendingMeta.ano)||'',paginas:($('paginas')?$('paginas').value.trim():pendingMeta.paginas)||''};
   const variants=isbnVariants(isbn);
-  const ex=isbn&&books.find(b=>{const bi=normIsbn(b.isbn);return bi&&(bi===isbn||variants.includes(bi))});
+  const exIsbn=isbn&&books.find(b=>{const bi=normIsbn(b.isbn);return bi&&(bi===isbn||variants.includes(bi))});
+  const tKey=normTitleKey(titulo),aKey=normTitleKey(autor);
+  const exTitle=!exIsbn&&tKey&&books.find(b=>normTitleKey(b.titulo)===tKey&&(!aKey||!normTitleKey(b.autor)||normTitleKey(b.autor)===aKey));
+  const ex=exIsbn||exTitle;
   try{
-    if(ex){const u={qtd:(ex.qtd||1)+qtd};if(photo)u.foto=photo;if(categoria)u.categoria=categoria;if(sinopse)u.sinopse=sinopse;if(meta.editora&&!ex.editora)u.editora=meta.editora;if(meta.ano&&!ex.ano)u.ano=meta.ano;if(meta.paginas&&!ex.paginas)u.paginas=meta.paginas;await col.doc(ex.id).update(u);await addLog('Cadastro','Somou '+qtd+' exemplar(es)',ex.titulo)}
-    else{await col.doc(isbn?'isbn'+isbn:'b'+Date.now()).set({isbn,titulo,autor:$('autor').value.trim(),local:$('local').value.trim(),categoria,sinopse,...meta,qtd,emp:[],foto:photo,criado:Date.now(),criadoPor:currentUser||''});await addLog('Cadastro','Novo livro ('+qtd+' ex.)',titulo)}
+    if(ex){const u={qtd:(ex.qtd||1)+qtd};if(isbn&&!ex.isbn)u.isbn=isbn;if(autor&&!ex.autor)u.autor=autor;if(photo&&!ex.foto)u.foto=photo;if(categoria&&!ex.categoria)u.categoria=categoria;if(sinopse&&!ex.sinopse)u.sinopse=sinopse;if(meta.editora&&!ex.editora)u.editora=meta.editora;if(meta.ano&&!ex.ano)u.ano=meta.ano;if(meta.paginas&&!ex.paginas)u.paginas=meta.paginas;await col.doc(ex.id).update(u);await addLog('Cadastro','Somou '+qtd+' exemplar(es)',ex.titulo)}
+    else{await col.doc(isbn?'isbn'+isbn:'b'+Date.now()).set({isbn,titulo,autor,local:$('local').value.trim(),categoria,sinopse,...meta,qtd,emp:[],reservas:[],foto:photo,criado:Date.now(),criadoPor:currentUser||''});await addLog('Cadastro','Novo livro ('+qtd+' ex.)',titulo)}
     pendingMeta={};
     ['isbn','titulo','autor','categoria','sinopse','editora','ano','paginas'].forEach(i=>{if($(i))$(i).value=''});$('qtd').value=1;$('foto').value='';photo='';$('prev').hidden=true;$('readBtn').hidden=true;
-    say('saveMsg','✔ “'+titulo+'” salvo no acervo. Escaneie o próximo livro.','ok');toast('Livro registrado ✔');window.scrollTo({top:0,behavior:'smooth'});say('scanMsg','Aponte a câmera para o código de barras na contracapa.');if($('titleLookupMsg'))say('titleLookupMsg','');
+    say('saveMsg',ex?'✔ Exemplar somado à obra existente “'+ex.titulo+'”.':'✔ “'+titulo+'” salvo no acervo. Escaneie o próximo livro.','ok');toast(ex?'Exemplar somado ✔':'Livro registrado ✔');window.scrollTo({top:0,behavior:'smooth'});say('scanMsg','Aponte a câmera para o código de barras na contracapa.');if($('titleLookupMsg'))say('titleLookupMsg','');
   }catch(err){say('saveMsg','Não foi possível salvar ('+(err&&(err.code||err.name)||'erro')+'). Você precisa ter permissão de edição.','warn')}
 }
 function hue(t){let h=0;for(const c of String(t))h=(h*31+c.charCodeAt(0))>>>0;return COLORS[h%COLORS.length]}
-function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),2600)}
+function toast(t,actLabel='',actOnclick='',ms=2600){
+  const e=$('toast');if(!e)return;
+  e.textContent=t;
+  if(actLabel&&actOnclick)e.innerHTML=`<span>${esc(t)}</span><button type="button" class="toast-btn" onclick="${actOnclick}">${esc(actLabel)}</button>`;
+  e.classList.add('show');
+  clearTimeout(toast.t);
+  toast.t=setTimeout(()=>e.classList.remove('show'),actLabel?Math.max(ms,5200):ms);
+}
 function normLoan(x){
   if(x&&typeof x==='object')return {nome:String(x.nome||'').trim(),retiradoEm:+x.retiradoEm||0,prazo:Math.max(1,+x.prazo||15)};
   return {nome:String(x||'').trim(),retiradoEm:0,prazo:15};
@@ -973,7 +1015,8 @@ function loanInfo(x){
 function loanTagHtml(x){
   const inf=loanInfo(x);
   if(!inf.retiradoEm)return `<b>${esc(inf.nome)}</b>`;
-  return `<b>${esc(inf.nome)}</b> · ${inf.atraso>0?`<span class="tag out" style="margin:0">Vencido há ${inf.atraso}d</span>`:`${inf.dias}d/${inf.prazo}d`}`;
+  const dt=new Date(inf.retiradoEm).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  return `<b>${esc(inf.nome)}</b> <span class="loan-date">· retirado em ${dt}</span> · ${inf.atraso>0?`<span class="tag out" style="margin:0">Vencido há ${inf.atraso}d</span>`:`${inf.dias}d/${inf.prazo}d`}`;
 }
 function free(b){return (b.qtd||1)-(b.emp||[]).length}
 function setFilt(f){filt=f;render()}
@@ -991,11 +1034,18 @@ function render(){
   const ls=$('locSel'),curLoc=ls?ls.value||'':'';
   if(ls)ls.innerHTML='<option value="">Todas as localizações</option>'+locs.map(lc=>'<option value="'+esc(lc)+'"'+(lc===curLoc?' selected':'')+'>'+esc(lc)+'</option>').join('');
   $('locais').innerHTML=locs.map(l=>'<option value="'+esc(l)+'">').join('');
-  $('chips').innerHTML=[['all','Todos',nTit],['in','Disponíveis',books.filter(b=>free(b)>0).length],['out','Emprestados',books.filter(b=>(b.emp||[]).length).length]]
-    .map(([k,n,c])=>`<button class="chip ${filt===k?'on':''}" onclick="setFilt('${k}')">${n} (${c})</button>`).join('');
+  const chipDefs=[['all','Todos',nTit],['in','Disponíveis',books.filter(b=>free(b)>0).length],['out','Emprestados',books.filter(b=>(b.emp||[]).length).length]];
+  const nLateBooks=books.filter(b=>(b.emp||[]).some(p=>loanInfo(p).atraso>0)).length;
+  const nResBooks=books.filter(b=>(b.reservas||[]).length>0).length;
+  if(nLateBooks)chipDefs.push(['late','Atrasados',nLateBooks]);
+  if(nResBooks)chipDefs.push(['res','Reservados',nResBooks]);
+  if((filt==='late'&&!nLateBooks)||(filt==='res'&&!nResBooks))filt='all';
+  $('chips').innerHTML=chipDefs.map(([k,n,c])=>`<button class="chip ${filt===k?'on':''}" onclick="setFilt('${k}')">${n} (${c})</button>`).join('');
   let l=books.filter(b=>{
     if(filt==='in'&&free(b)<=0)return false;
     if(filt==='out'&&!(b.emp||[]).length)return false;
+    if(filt==='late'&&!(b.emp||[]).some(p=>loanInfo(p).atraso>0))return false;
+    if(filt==='res'&&!(b.reservas||[]).length)return false;
     if(cs.value&&(b.categoria||'')!==cs.value)return false;
     if(ls&&ls.value&&(b.local||'')!==ls.value)return false;
     if(!q)return true;
@@ -1008,16 +1058,17 @@ function render(){
   $('list').className=view==='grid'?'grid':'';$('viewBtn').textContent=view==='grid'?'Lista':'Estante';
   say('count',l.length===nTit?'':l.length+' de '+nTit+' títulos');
   $('list').innerHTML=l.length?l.map(b=>{
-    const emp=b.emp||[],f=free(b),qt=b.qtd||1;
+    const emp=b.emp||[],resv=b.reservas||[],f=free(b),qt=b.qtd||1;
     const meta=[b.categoria?`<span class="cat">${esc(b.categoria)}</span>`:'',esc(b.local||'Sem localização'),b.isbn?'ISBN '+esc(b.isbn):''].filter(Boolean).join(' · ');
     return `<article class="bk" tabindex="0" onclick="openBook('${b.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBook('${b.id}')}">${bookCover(b)}<div class="info"><h3>${esc(b.titulo)}</h3><div class="by">${esc(b.autor||'Autor não informado')}</div>
     <div class="meta">${meta}</div>
-    <span class="tag ${f>0?'in':'out'}">${f} de ${qt} disponível(is)</span>
-    ${emp.map((n,i)=>`<div class="loan"><span>Emprestado para ${loanTagHtml(n)}</span><span class="loan-acts"><button type="button" class="btn alt sm" onclick="event.stopPropagation();renewLoan('${b.id}',${i})">+15d</button><button type="button" class="btn alt sm" onclick="event.stopPropagation();ret('${b.id}',${i})">Devolvido</button></span></div>`).join('')}
-    <div class="acts">${f>0?`<button class="btn sm" onclick="event.stopPropagation();lend('${b.id}')">Emprestar</button>`:''}<button class="btn alt sm" onclick="event.stopPropagation();editBook('${b.id}')">Editar</button><button class="btn alt sm danger" onclick="event.stopPropagation();del('${b.id}')">Remover</button></div></div></article>`}).join('')
+    <span class="tag ${f>0?'in':'out'}">${f} de ${qt} disponível(is)${resv.length?' · '+resv.length+' reserva(s)':''}</span>
+    ${emp.map((n,i)=>`<div class="loan${loanInfo(n).atraso>0?' late':''}"><span>Emprestado para ${loanTagHtml(n)}</span><span class="loan-acts"><button type="button" class="btn alt sm" onclick="event.stopPropagation();renewLoan('${b.id}',${i})">+15d</button><button type="button" class="btn alt sm" onclick="event.stopPropagation();ret('${b.id}',${i})">Devolvido</button></span></div>`).join('')}
+    <div class="acts">${f>0?`<button class="btn sm" onclick="event.stopPropagation();lend('${b.id}')">Emprestar</button>`:`<button class="btn sm" onclick="event.stopPropagation();reserve('${b.id}')">Reservar</button>`}<button class="btn alt sm" onclick="event.stopPropagation();editBook('${b.id}')">Editar</button></div></div></article>`}).join('')
     :`<div class="empty">${nTit?'Nenhum livro encontrado com esses filtros.':'O acervo está vazio. Cadastre o primeiro livro na aba Cadastrar.'}</div>`;
-  if(openBookId&&!editMode&&!lendMode)renderModal(openBookId);
+  if(openBookId&&!editMode&&!lendMode&&!reserveMode&&!delMode)renderModal(openBookId);
   renderHome();
+  if($('p4')&&!$('p4').hidden)renderProfile();
 }
 function renderHome(){
   if(!$('homeKpis'))return;
@@ -1055,11 +1106,11 @@ function bookCover(b){
 }
 function openBook(id){
   if(!books.some(b=>b.id===id))return;
-  openBookId=id;editMode=false;lendMode=false;renderModal(id);$('bookModal').hidden=false;
+  openBookId=id;editMode=false;lendMode=false;reserveMode=false;delMode=false;modalOrigin='detail';lendPrefill='';renderModal(id);$('bookModal').hidden=false;
 }
-function editBook(id){
+function editBook(id,fromDetail=false){
   const b=books.find(x=>x.id===id);if(!b)return;
-  openBookId=id;editMode=true;lendMode=false;editPhoto=b.foto||'';renderModal(id);$('bookModal').hidden=false;
+  openBookId=id;editMode=true;lendMode=false;reserveMode=false;delMode=false;modalOrigin=fromDetail?'detail':'list';editPhoto=b.foto||'';renderModal(id);$('bookModal').hidden=false;
   const t=$('eTitulo');if(t)t.focus();
 }
 function clearEditCover(){
@@ -1067,29 +1118,79 @@ function clearEditCover(){
   const rm=$('eRmCov');if(rm)rm.hidden=true;
   const f=$('eFoto');if(f)f.value='';
 }
-function closeBook(){openBookId='';editMode=false;lendMode=false;editPhoto='';$('bookModal').hidden=true}
+function closeBook(){openBookId='';editMode=false;lendMode=false;reserveMode=false;delMode=false;modalOrigin='list';lendPrefill='';editPhoto='';$('bookModal').hidden=true}
+function cancelSubModal(id){
+  if(modalOrigin==='detail')openBook(id);
+  else closeBook();
+}
 function knownBorrowers(){
   const s=new Set(Object.keys(getUsers()));
-  books.forEach(b=>(b.emp||[]).forEach(p=>{const n=normLoan(p).nome;if(n)s.add(n)}));
+  if(currentUser)s.add(currentUser);
+  books.forEach(b=>{(b.emp||[]).forEach(p=>{const n=normLoan(p).nome;if(n)s.add(n)});(b.reservas||[]).forEach(r=>{if(r&&r.nome)s.add(r.nome)})});
   logs.forEach(l=>{if(l.acao==='Empréstimo'&&l.detalhes){const m=String(l.detalhes).match(/^Emprestado para (.+?) \(/);if(m&&m[1])s.add(m[1].trim())}});
   return [...s].filter(Boolean).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+}
+function updateLendDueHint(){
+  const h=$('lendDueHint');if(!h)return;
+  const d=Math.max(1,parseInt($('lendPrazo')?$('lendPrazo').value:'15',10)||15);
+  const due=new Date(Date.now()+d*86400000);
+  h.textContent='Devolução prevista: '+due.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
 }
 function setLendPrazo(d){
   if($('lendPrazo'))$('lendPrazo').value=String(d);
   [7,15,30].forEach(x=>{const el=$('pz'+x);if(el)el.classList.toggle('on',x===d)});
+  updateLendDueHint();
+}
+function pickLendReader(name){
+  if($('lendNome'))$('lendNome').value=name;
+  if($('lendSelfBtn'))$('lendSelfBtn').classList.toggle('on',!!currentUser&&name===currentUser);
+  if($('lendQuickChips'))Array.from($('lendQuickChips').children||[]).forEach(ch=>{if(ch.dataset&&ch.dataset.name!==undefined)ch.classList.toggle('on',ch.dataset.name===name)});
+}
+function setLendSelf(){pickLendReader(currentUser)}
+function setReserveSelf(){if($('resNome')&&currentUser)$('resNome').value=currentUser}
+function modalHeaderHtml(id,title){
+  const back=modalOrigin==='detail'?`<button type="button" class="modal-back" onclick="openBook('${id}')">← Voltar</button>`:'';
+  return `<div class="sheet-hd">${back}<span id="dlgTitle">${title}</span><button type="button" class="xbtn" onclick="closeBook()" aria-label="Fechar">✕</button></div>`;
 }
 function renderModal(id){
   const b=books.find(x=>x.id===id);
   if(!b){closeBook();return}
-  const emp=b.emp||[],f=free(b),qt=b.qtd||1;
+  const emp=b.emp||[],resv=b.reservas||[],f=free(b),qt=b.qtd||1;
+  if(delMode){
+    $('bookSheet').innerHTML=`${modalHeaderHtml(b.id,'Remover obra')}
+    <div style="margin-bottom:12px"><h2 style="margin:0;font-size:1.12rem">${esc(b.titulo)}</h2><div class="by" style="margin:2px 0 0">${esc(b.autor||'Autor não informado')}</div></div>
+    <p class="msg warn" style="margin:0 0 14px">Tem certeza que deseja remover esta obra do acervo? Esta ação não pode ser desfeita.</p>
+    <div class="acts"><button type="button" class="btn sm danger" id="confirmDelBtn" onclick="confirmDel('${b.id}')">Confirmar remoção</button><button type="button" class="btn alt sm" onclick="cancelSubModal('${b.id}')">Cancelar</button></div>`;
+    return;
+  }
+  if(reserveMode){
+    const ppl=knownBorrowers();
+    $('bookSheet').innerHTML=`${modalHeaderHtml(b.id,'Reservar exemplar')}
+    <div style="margin-bottom:12px"><h2 style="margin:0;font-size:1.12rem">${esc(b.titulo)}</h2><div class="by" style="margin:2px 0 0">${esc(b.autor||'Autor não informado')} · ${resv.length} na fila de espera</div></div>
+    <form onsubmit="event.preventDefault();saveReserve('${b.id}')">
+    <label for="resNome">Quem deseja reservar?</label>
+    <input id="resNome" list="borrowersList" placeholder="Ex.: Irmã Maria" autocomplete="off" required>
+    <datalist id="borrowersList">${ppl.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+    ${currentUser?`<div class="prazo-chips" style="margin-top:6px"><button type="button" class="chip" id="resSelfBtn" onclick="setReserveSelf()">Para mim (${esc(currentUser)})</button></div>`:''}
+    <p class="msg warn" id="resMsg"></p>
+    <div class="acts"><button type="submit" class="btn sm">Confirmar reserva</button><button type="button" class="btn alt sm" onclick="cancelSubModal('${b.id}')">Cancelar</button></div>
+    </form>`;
+    return;
+  }
   if(lendMode){
     const ppl=knownBorrowers();
-    $('bookSheet').innerHTML=`<div class="sheet-hd"><span id="dlgTitle">Registrar empréstimo</span><button class="xbtn" onclick="closeBook()" aria-label="Fechar">✕</button></div>
+    const quickPpl=ppl.filter(n=>n!==currentUser).slice(0,4);
+    const firstRes=resv[0]&&resv[0].nome;
+    const initVal=lendPrefill||firstRes||'';
+    const dueStr=new Date(Date.now()+15*86400000).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+    $('bookSheet').innerHTML=`${modalHeaderHtml(b.id,'Registrar empréstimo')}
     <div style="margin-bottom:12px"><h2 style="margin:0;font-size:1.12rem">${esc(b.titulo)}</h2><div class="by" style="margin:2px 0 0">${esc(b.autor||'Autor não informado')} · ${f} de ${qt} disponível(is)</div></div>
+    ${firstRes?`<div class="lend-note"><span>Fila de espera: <b>${esc(firstRes)}</b> é o 1º da fila</span><button type="button" class="chip" onclick="pickLendReader('${esc(firstRes).replace(/'/g,"&#39;")}')">Usar nome</button></div>`:''}
     <form onsubmit="event.preventDefault();saveLend('${b.id}')">
     <label for="lendNome">Quem está levando?</label>
-    <input id="lendNome" list="borrowersList" placeholder="Ex.: Irmã Maria" autocomplete="off" required>
+    <input id="lendNome" list="borrowersList" value="${esc(initVal)}" placeholder="Digite ou toque em um nome abaixo" autocomplete="off" oninput="pickLendReader(this.value)" required>
     <datalist id="borrowersList">${ppl.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+    ${(currentUser||quickPpl.length)?`<div class="prazo-chips" id="lendQuickChips" style="margin-top:8px">${currentUser?`<button type="button" class="chip${initVal===currentUser?' on':''}" id="lendSelfBtn" data-name="${esc(currentUser)}" onclick="setLendSelf()">Para mim (${esc(currentUser)})</button>`:''}${quickPpl.map(n=>`<button type="button" class="chip${initVal===n?' on':''}" data-name="${esc(n)}" onclick="pickLendReader('${esc(n).replace(/'/g,"&#39;")}')">${esc(n)}</button>`).join('')}</div>`:''}
     <label for="lendPrazo">Prazo de devolução (em dias)</label>
     <div class="prazo-chips">
     <button type="button" class="chip" id="pz7" onclick="setLendPrazo(7)">7 dias</button>
@@ -1097,13 +1198,14 @@ function renderModal(id){
     <button type="button" class="chip" id="pz30" onclick="setLendPrazo(30)">30 dias</button>
     </div>
     <input id="lendPrazo" type="number" min="1" max="365" value="15" inputmode="numeric" oninput="setLendPrazo(+this.value)">
+    <p class="msg" id="lendDueHint" style="margin-top:6px">Devolução prevista: ${esc(dueStr)}</p>
     <p class="msg warn" id="lendMsg"></p>
-    <div class="acts"><button type="submit" class="btn sm">Confirmar empréstimo</button><button type="button" class="btn alt sm" onclick="openBook('${b.id}')">Cancelar</button></div>
+    <div class="acts"><button type="submit" class="btn sm">Confirmar empréstimo</button><button type="button" class="btn alt sm" onclick="cancelSubModal('${b.id}')">Cancelar</button></div>
     </form>`;
     return;
   }
   if(editMode){
-    $('bookSheet').innerHTML=`<div class="sheet-hd"><span id="dlgTitle">Editar obra</span><button class="xbtn" onclick="closeBook()" aria-label="Fechar">✕</button></div>
+    $('bookSheet').innerHTML=`${modalHeaderHtml(b.id,'Editar obra')}
     <form onsubmit="event.preventDefault();saveEdit('${b.id}')">
     <label for="eTitulo">Título</label><input id="eTitulo" value="${esc(b.titulo||'')}" required>
     <label for="eAutor">Autor</label><input id="eAutor" value="${esc(b.autor||'')}">
@@ -1146,20 +1248,30 @@ function renderModal(id){
   ${b.categoria?`<div class="meta"><span class="cat">${esc(b.categoria)}</span></div>`:''}
   <span class="tag ${f>0?'in':'out'}">${f>0?'Disponível':'Todos emprestados'}</span></div></div>
   <dl class="kv">${info.map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
-  ${b.sinopse?`<div class="syn"><b>Sinopse</b><p>${esc(b.sinopse)}</p></div>`:(b.isbn?`<button class="btn alt sm" id="synBtn" onclick="fetchSynopsis('${b.id}')">Buscar sinopse</button>`:'')}
-  ${emp.map((n,i)=>`<div class="loan"><span>Emprestado para ${loanTagHtml(n)}</span><span class="loan-acts"><button type="button" class="btn alt sm" onclick="renewLoan('${b.id}',${i})">Renovar +15d</button><button type="button" class="btn alt sm" onclick="ret('${b.id}',${i})">Devolvido</button></span></div>`).join('')}
-  <div class="acts">${f>0?`<button class="btn sm" onclick="lend('${b.id}')">Emprestar</button>`:''}<button class="btn alt sm" onclick="editBook('${b.id}')">Editar</button><button class="btn alt sm danger" onclick="del('${b.id}')">Remover</button><button class="btn alt sm" onclick="closeBook()">Fechar</button></div>`;
+  ${b.sinopse?`<div class="syn"><b>Sinopse</b><p>${esc(b.sinopse)}</p></div>`:`<button class="btn alt sm" id="synBtn" onclick="fetchSynopsis('${b.id}')">Buscar sinopse</button>`}
+  ${emp.map((n,i)=>`<div class="loan${loanInfo(n).atraso>0?' late':''}"><span>Emprestado para ${loanTagHtml(n)}</span><span class="loan-acts"><button type="button" class="btn alt sm" onclick="renewLoan('${b.id}',${i})">Renovar +15d</button><button type="button" class="btn alt sm" onclick="ret('${b.id}',${i})">Devolvido</button></span></div>`).join('')}
+  ${resv.map((r,ri)=>`<div class="loan"><span>Reserva ${ri+1}º: <b>${esc(r.nome)}</b></span><span class="loan-acts">${f>0&&ri===0?`<button type="button" class="btn sm" onclick="lend('${b.id}',true,'${esc(r.nome).replace(/'/g,"&#39;")}')">Emprestar</button>`:''}<button type="button" class="btn alt sm" onclick="cancelReserve('${b.id}',${ri})">Cancelar</button></span></div>`).join('')}
+  <div class="acts">${f>0?`<button class="btn sm" onclick="lend('${b.id}',true)">Emprestar</button>`:`<button class="btn sm" onclick="reserve('${b.id}',true)">Reservar</button>`}<button class="btn alt sm" onclick="editBook('${b.id}',true)">Editar</button><button class="btn alt sm danger" onclick="del('${b.id}',true)">Remover</button><button class="btn alt sm" onclick="closeBook()">Fechar</button></div>`;
 }
 async function lookupEdit(){
-  const parsed=parseIsbn($('eIsbn').value);
-  if(!parsed.valid){say('editMsg','Informe um ISBN válido (10 ou 13 dígitos) para buscar.','warn');return}
-  $('eIsbn').value=parsed.code;
+  const rawIsbn=$('eIsbn')?$('eIsbn').value.trim():'';
+  const parsed=parseIsbn(rawIsbn);
+  const t=$('eTitulo')?$('eTitulo').value.trim():'',a=$('eAutor')?$('eAutor').value.trim():'';
+  if(rawIsbn&&!parsed.valid){say('editMsg','Informe um ISBN válido (10 ou 13 dígitos) ou deixe vazio para buscar pelo título.','warn');return}
+  if(!parsed.valid&&!t){say('editMsg','Informe um ISBN válido ou preencha o título para buscar.','warn');return}
+  if(parsed.valid)$('eIsbn').value=parsed.code;
   const btn=$('eLookupBtn');if(btn){btn.disabled=true;btn.textContent='…'}
-  say('editMsg','Buscando dados pelo ISBN…');
+  say('editMsg',parsed.valid?'Buscando dados pelo ISBN…':'Buscando dados pelo título…');
   try{
-    const res=await resolveBookByVariants(parsed.variants);
-    const bk=res.book;
-    if(!bk){say('editMsg','Nenhum dado encontrado para este ISBN.','warn');return}
+    let bk=null,vars=parsed.variants||[];
+    if(parsed.valid){
+      const res=await resolveBookByVariants(vars);
+      bk=res.book;
+    }else{
+      bk=await queryByTitleAuthor(t,a);
+      if(bk)bk.source=bk.source||'Busca por título';
+    }
+    if(!bk){say('editMsg','Nenhum dado encontrado.','warn');return}
     if(!$('eTitulo').value.trim()&&bk.title)$('eTitulo').value=bk.title;
     if(!$('eAutor').value.trim()&&bk.author)$('eAutor').value=bk.author;
     if(!$('eCat').value.trim()&&bk.category)$('eCat').value=bk.category;
@@ -1168,10 +1280,10 @@ async function lookupEdit(){
     if(!$('ePag').value.trim()&&bk.paginas)$('ePag').value=bk.paginas;
     if(!$('eSinopse').value.trim()&&bk.sinopse)$('eSinopse').value=bk.sinopse;
     if(!editPhoto){
-      const cv=await findCover(bk,parsed.variants);
+      const cv=await findCover(bk,vars);
       if(cv){editPhoto=cv;if($('ePrev')){$('ePrev').src=cv;$('ePrev').hidden=false}if($('eRmCov'))$('eRmCov').hidden=false}
     }
-    say('editMsg','Dados preenchidos ('+bk.source+'). Revise e clique em Salvar alterações.','ok');
+    say('editMsg','Dados preenchidos'+(bk.source?' ('+bk.source+')':'')+'. Revise e clique em Salvar alterações.','ok');
   }finally{if(btn){btn.disabled=false;btn.textContent='Buscar'}}
 }
 async function saveEdit(id){
@@ -1211,31 +1323,41 @@ async function saveEdit(id){
   toast('Alterações salvas ✔');
 }
 async function fetchSynopsis(id){
-  const b=books.find(x=>x.id===id);if(!b||!b.isbn)return;
+  const b=books.find(x=>x.id===id);if(!b)return;
   const btn=$('synBtn');if(btn){btn.disabled=true;btn.textContent='Buscando sinopse…'}
-  const vars=isbnVariants(normIsbn(b.isbn));
-  const res=await resolveBookByVariants(vars.length?vars:[b.isbn]);
-  const bk=res.book;
-  if(bk&&(bk.sinopse||bk.editora||bk.ano||bk.paginas)){
+  const cleanIsbn=normIsbn(b.isbn),vars=cleanIsbn?isbnVariants(cleanIsbn):[];
+  let bk=null;
+  if(cleanIsbn){
+    const res=await resolveBookByVariants(vars.length?vars:[cleanIsbn]);
+    bk=res.book;
+  }
+  if((!bk||!bk.sinopse)&&b.titulo){
+    const byTit=await queryByTitleAuthor(b.titulo,b.autor||'');
+    if(byTit)bk=bk?mergeBookMeta(bk,byTit):byTit;
+  }
+  if(bk&&(bk.sinopse||bk.editora||bk.ano||bk.paginas||bk.category)){
     const patch={};
     for(const k of ['sinopse','editora','ano','paginas'])if(!b[k]&&bk[k])patch[k]=bk[k];
+    if(!b.categoria&&bk.category)patch.categoria=bk.category;
     if(Object.keys(patch).length){
       await mut(id,()=>col.doc(id).update(patch));
-      const fNames={sinopse:'Sinopse',editora:'Editora',ano:'Publicação',paginas:'Páginas'};
-      await addLog('Edição','Dados buscados por ISBN: '+Object.keys(patch).map(k=>fNames[k]||k).join(', '),b.titulo);
+      const fNames={sinopse:'Sinopse',editora:'Editora',ano:'Publicação',paginas:'Páginas',categoria:'Categoria'};
+      await addLog('Edição','Dados completados automaticamente: '+Object.keys(patch).map(k=>fNames[k]||k).join(', '),b.titulo);
     }
     toast(bk.sinopse?'Sinopse encontrada ✔':'Sinopse indisponível; dados atualizados');
   }else{
-    toast('Sinopse não encontrada para este ISBN');
+    toast('Sinopse não encontrada para esta obra');
     if(btn){btn.disabled=false;btn.textContent='Buscar sinopse'}
   }
 }
-if(typeof addEventListener==='function')addEventListener('keydown',e=>{if(e.key==='Escape'&&openBookId)closeBook()});
+if(typeof addEventListener==='function')addEventListener('keydown',e=>{if(e.key==='Escape'){if($('newsModal')&&!$('newsModal').hidden)closeWhatsNew();else if(openBookId)closeBook()}});
 async function mut(id,fn){const b=books.find(x=>x.id===id);try{await fn(b)}catch(e){alert('Sem permissão para alterar o acervo.')}}
-function lend(id){
+function lend(id,fromDetail=false,prefill=''){
   const b=books.find(x=>x.id===id);
   if(!b||free(b)<=0){toast('Nenhum exemplar disponível');return}
-  openBookId=id;editMode=false;lendMode=true;renderModal(id);$('bookModal').hidden=false;
+  openBookId=id;editMode=false;lendMode=true;reserveMode=false;delMode=false;
+  modalOrigin=fromDetail?'detail':'list';lendPrefill=String(prefill||'').trim();
+  renderModal(id);$('bookModal').hidden=false;
   const inp=$('lendNome');if(inp)inp.focus();
 }
 async function saveLend(id){
@@ -1243,9 +1365,63 @@ async function saveLend(id){
   if(!n){if($('lendMsg'))say('lendMsg','Informe quem está levando o livro.','warn');if($('lendNome'))$('lendNome').focus();return}
   const prazo=Math.max(1,parseInt($('lendPrazo')?$('lendPrazo').value:'15',10)||15);
   const entry={nome:n,retiradoEm:Date.now(),prazo};
-  lendMode=false;
-  await mut(id,async b=>{await col.doc(id).update({emp:[...(b.emp||[]),entry]});await addLog('Empréstimo','Emprestado para '+n+' (prazo: '+prazo+' dias)',b.titulo)});
+  const backToDetail=modalOrigin==='detail';
+  lendMode=false;lendPrefill='';
+  if(!backToDetail)closeBook();
+  await mut(id,async b=>{
+    const resv=(b.reservas||[]).filter(r=>String(r&&r.nome||'').toLowerCase()!==n.toLowerCase());
+    await col.doc(id).update({emp:[...(b.emp||[]),entry],reservas:resv});
+    await addLog('Empréstimo','Emprestado para '+n+' (prazo: '+prazo+' dias)',b.titulo);
+  });
+  if(backToDetail&&openBookId===id)openBook(id);
   toast('Empréstimo registrado ✔');
+}
+function reserve(id,fromDetail=false){
+  const b=books.find(x=>x.id===id);if(!b)return;
+  openBookId=id;editMode=false;lendMode=false;reserveMode=true;delMode=false;
+  modalOrigin=fromDetail?'detail':'list';
+  renderModal(id);$('bookModal').hidden=false;
+  const inp=$('resNome');if(inp)inp.focus();
+}
+async function saveReserve(id){
+  const n=$('resNome')?$('resNome').value.trim():'';
+  if(!n){if($('resMsg'))say('resMsg','Informe quem deseja reservar o livro.','warn');if($('resNome'))$('resNome').focus();return}
+  const b0=books.find(x=>x.id===id);
+  if(b0&&(b0.reservas||[]).some(r=>String(r&&r.nome||'').toLowerCase()===n.toLowerCase())){
+    if($('resMsg'))say('resMsg',n+' já está na fila de reserva desta obra.','warn');
+    return;
+  }
+  const backToDetail=modalOrigin==='detail';
+  reserveMode=false;
+  if(!backToDetail)closeBook();
+  await mut(id,async b=>{
+    const next=[...(b.reservas||[]),{nome:n,criadoEm:Date.now()}];
+    await col.doc(id).update({reservas:next});
+    await addLog('Reserva','Reservado para '+n+' ('+next.length+'º na fila)',b.titulo);
+  });
+  if(backToDetail&&openBookId===id)openBook(id);
+  toast('Reserva registrada ✔');
+}
+async function cancelReserve(id,ri){
+  await mut(id,async b=>{
+    const next=[...(b.reservas||[])],rem=next.splice(ri,1)[0];
+    if(!rem)return;
+    await col.doc(id).update({reservas:next});
+    await addLog('Reserva','Reserva cancelada de '+(rem.nome||'leitor'),b.titulo);
+    toast('Reserva cancelada');
+  });
+}
+async function fulfillReserve(id,ri=0){
+  const b0=books.find(x=>x.id===id);
+  if(!b0||free(b0)<=0){toast('Nenhum exemplar disponível');return}
+  await mut(id,async b=>{
+    const resv=[...(b.reservas||[])],r=resv.splice(ri,1)[0];
+    if(!r||!r.nome)return;
+    const entry={nome:r.nome,retiradoEm:Date.now(),prazo:15};
+    await col.doc(id).update({emp:[...(b.emp||[]),entry],reservas:resv});
+    await addLog('Empréstimo','Emprestado para '+r.nome+' (via fila de reserva · 15 dias)',b.titulo);
+    toast('Emprestado para '+r.nome+' ✔');
+  });
 }
 async function renewLoan(id,i,extra=15){
   await mut(id,async b=>{
@@ -1262,12 +1438,38 @@ async function renewLoan(id,i,extra=15){
 function ret(id,i){
   mut(id,async b=>{
     const a=[...(b.emp||[])],who=a.splice(i,1)[0],inf=loanInfo(who);
+    if(!who)return;
+    lastReturned={id,loan:who,titulo:b.titulo};
     await col.doc(id).update({emp:a});
     await addLog('Devolução','Devolvido'+(inf.nome?' por '+inf.nome:'')+(inf.retiradoEm?' ('+inf.dias+' dia(s))':''),b.titulo);
-    toast('Devolução registrada');
+    const resv=b.reservas||[];
+    if(resv.length&&resv[0]&&resv[0].nome){
+      toast('Devolvido · Reserva: '+resv[0].nome,'Emprestar',`fulfillReserve('${b.id}',0)`,6500);
+    }else{
+      toast('Devolução registrada','Desfazer','undoRet()',5200);
+    }
   });
 }
-function del(id){const b=books.find(x=>x.id===id);if(confirm('Remover “'+(b&&b.titulo||'este livro')+'” do acervo?'))mut(id,async()=>{await col.doc(id).delete();await addLog('Remoção','Livro removido do acervo',b&&b.titulo||'')}).then(()=>toast('Livro removido'))}
+async function undoRet(){
+  if(!lastReturned)return;
+  const lr=lastReturned;lastReturned=null;
+  const b0=books.find(x=>x.id===lr.id);if(!b0)return;
+  await mut(lr.id,async b=>{
+    await col.doc(lr.id).update({emp:[...(b.emp||[]),lr.loan]});
+    await addLog('Empréstimo','Desfez devolução de '+(normLoan(lr.loan).nome||'leitor'),b.titulo);
+  });
+  toast('Devolução desfeita ✔');
+}
+function del(id,fromDetail=false){
+  const b=books.find(x=>x.id===id);if(!b)return;
+  openBookId=id;editMode=false;lendMode=false;reserveMode=false;delMode=true;modalOrigin=fromDetail?'detail':'list';renderModal(id);$('bookModal').hidden=false;
+}
+async function confirmDel(id){
+  const b=books.find(x=>x.id===id);if(!b)return;
+  delMode=false;closeBook();
+  await mut(id,async()=>{await col.doc(id).delete();await addLog('Remoção','Livro removido do acervo',b.titulo||'')});
+  toast('Livro removido ✔');
+}
 function dlFile(name,content,type){
   const a=document.createElement('a'),u=URL.createObjectURL(new Blob([content],{type}));
   a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
@@ -1309,7 +1511,7 @@ async function importBackup(inp){
         local:String(raw.local||'').trim(),categoria:String(raw.categoria||'').trim(),
         sinopse:String(raw.sinopse||'').trim(),editora:String(raw.editora||'').trim(),
         ano:String(raw.ano||'').trim(),paginas:String(raw.paginas||'').trim(),
-        qtd:Math.max(1,+raw.qtd||1),emp:Array.isArray(raw.emp)?raw.emp:[],
+        qtd:Math.max(1,+raw.qtd||1),emp:Array.isArray(raw.emp)?raw.emp:[],reservas:Array.isArray(raw.reservas)?raw.reservas:[],
         foto:String(raw.foto||''),criado:+raw.criado||Date.now(),criadoPor:String(raw.criadoPor||'')
       };
       await col.doc(id).set(doc);
@@ -1321,4 +1523,7 @@ async function importBackup(inp){
     if(n)await addLog('Importação',n+' livro(s) importado(s) via backup');
     toast(n?n+' livro(s) importado(s) ✔':'Nenhum livro válido encontrado');
   }catch(e){toast('Erro ao ler o arquivo JSON')}
+}
+if(typeof navigator!=='undefined'&&'serviceWorker' in navigator&&typeof location!=='undefined'&&/^https?:/.test(location.protocol)){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
