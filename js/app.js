@@ -492,21 +492,16 @@ function renderProfile(){
   let fn='';try{fn=localStorage.getItem('biblioteca_font')||''}catch(e){}
   if($('fnStd'))$('fnStd').classList.toggle('on',!fn);
   if($('fnLg'))$('fnLg').classList.toggle('on',fn==='lg');
-  const sb=getSupaCfg(),sess=getSupaSession(),fromApp=hasAppSupaCfg();
-  if($('supaCard'))$('supaCard').hidden=false;
-  if($('sbManualFields'))$('sbManualFields').hidden=fromApp;
-  if($('sbConnectBtn'))$('sbConnectBtn').hidden=fromApp;
-  if($('sbUrlInput'))$('sbUrlInput').value=sb?sb.url:'';
-  if($('sbKeyInput'))$('sbKeyInput').value=sb?sb.key:'';
+  const sb=getSupaCfg(),sess=getSupaSession();
+  if($('supaCard'))$('supaCard').hidden=!sb;
   if($('sbSyncBtn'))$('sbSyncBtn').hidden=!sb;
-  if($('sbClearBtn'))$('sbClearBtn').hidden=!sb||fromApp;
-  if($('sbStatus')){
+  if($('sbStatus')&&sb){
     if(supaLastErr)say('sbStatus',supaLastErr,'warn');
-    else if(sb){
-      const authLbl=sess&&sess.access_token?'autenticado via Google':'aguardando sessão Auth';
+    else{
+      const authLbl=sess&&sess.access_token?'autenticado via Google':'aguardando autenticação';
       const syncLbl=supaLastSync?' · última sinc: '+new Date(supaLastSync).toLocaleTimeString('pt-BR'):'';
-      say('sbStatus','Conectado ao Supabase ('+authLbl+')'+syncLbl,'ok');
-    }else say('sbStatus','Modo local (sem Supabase configurado).','');
+      say('sbStatus','Acervo sincronizado ('+authLbl+')'+syncLbl,'ok');
+    }
   }
   const recent=myLogs.slice(0,8);
   $('profLogs').innerHTML=recent.length?recent.map(l=>`<div class="log-row"><div class="log-top"><span class="log-act">${esc(l.acao)}${l.livro?' · '+esc(l.livro):''}</span><span class="log-time">${new Date(l.criado||0).toLocaleString('pt-BR')}</span></div><div class="log-det">${esc(l.detalhes||'')}</div></div>`).join(''):'<p class="msg">Nenhuma atividade registrada ainda para este usuário.</p>';

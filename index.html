@@ -15,7 +15,7 @@
 <link rel="icon" type="image/png" sizes="64x64" href="assets/img/icon-64.png">
 <link rel="apple-touch-icon" sizes="192x192" href="assets/img/icon-192.png">
 <script src="https://accounts.google.com/gsi/client" async defer onload="if(typeof initGoogleSignIn==='function')initGoogleSignIn()"></script>
-<link rel="stylesheet" href="css/styles.css?v=1.5.4">
+<link rel="stylesheet" href="css/styles.css?v=1.6.0">
 </head>
 <body>
 <section id="loginView" class="login-wrap" hidden>
@@ -52,7 +52,7 @@
 </details>
 </div>
 </div>
-<p class="login-foot">Suas ações no acervo ficam registradas na aba <b>Log</b> · Versão 1.5.0</p>
+<p class="login-foot">Suas ações no acervo ficam registradas na aba <b>Log</b> · Versão 1.6.0</p>
 </div>
 </section>
 
@@ -220,34 +220,19 @@
 <button type="button" class="chip" id="fnLg" onclick="setFontSize('lg')">Grande</button>
 </div>
 </div>
-<div class="card" id="supaCard">
-<h3 style="margin-top:0">Sincronização em nuvem (Supabase)</h3>
-<p class="msg" id="sbStatus" style="margin-top:0">Modo local (sem Supabase configurado).</p>
-<div class="grid2" id="sbManualFields">
-<div><label for="sbUrlInput">Project URL</label><input id="sbUrlInput" placeholder="https://seu-projeto.supabase.co" autocomplete="off"></div>
-<div><label for="sbKeyInput">Publishable / Anon Key</label><input id="sbKeyInput" type="password" placeholder="sb_publishable_... ou eyJ..." autocomplete="off"></div>
-</div>
+<div class="card" id="supaCard" hidden>
+<h3 style="margin-top:0">Sincronização em nuvem</h3>
+<p class="msg" id="sbStatus" style="margin-top:0"></p>
 <div class="acts" style="margin-top:10px">
-<button type="button" class="btn sm" id="sbConnectBtn" onclick="saveSupabaseCfg()">Conectar e sincronizar</button>
-<button type="button" class="btn alt sm" id="sbSyncBtn" onclick="syncNow()" hidden>Sincronizar agora</button>
-<button type="button" class="btn alt sm danger" id="sbClearBtn" onclick="clearSupabaseCfg()" hidden>Desconectar</button>
+<button type="button" class="btn alt sm" id="sbSyncBtn" onclick="syncNow()">Sincronizar agora</button>
 </div>
-<details style="margin-top:10px;font-size:.8rem;color:var(--mut)">
-<summary style="cursor:pointer">Configuração segura do banco (supabase/schema.sql)</summary>
-<pre style="white-space:pre-wrap;background:var(--soft);padding:8px 10px;border-radius:3px;margin:6px 0 0;font-size:.74rem;overflow-x:auto">-- Execute o arquivo completo supabase/schema.sql no SQL Editor do Supabase.
--- Resumo das regras aplicadas:
--- 1. RLS habilitada e forçada (ENABLE + FORCE ROW LEVEL SECURITY) em livros, logs e membros_autorizados
--- 2. Acesso restrito a usuários autenticados via Google (TO authenticated + private.is_authorized_member())
--- 3. Tabela logs imutável (somente SELECT e INSERT; REVOKE UPDATE, DELETE)
--- 4. Constraints de validação JSONB, trigger de auditoria e índices (updated_at + GIN)</pre>
-</details>
 </div>
 <div class="card">
 <div class="brand" style="margin-bottom:8px"><h3 style="margin:0">Suas atividades recentes</h3><button type="button" class="btn alt sm danger" onclick="logout()">Sair da conta</button></div>
 <div id="profLogs"></div>
 </div>
 </section>
-<footer class="site-foot"><span><b>Biblioteca do Convento</b> · Acervo Comunitário</span><span id="appVersion">Versão 1.5.0</span></footer>
+<footer class="site-foot"><span><b>Biblioteca do Convento</b> · Acervo Comunitário</span><span id="appVersion">Versão 1.6.0</span></footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="bookModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="dlgTitle" onclick="if(event.target===this)closeBook()">
@@ -255,6 +240,6 @@
 </div>
 
 <script src="config/keys.js"></script>
-<script src="js/app.js?v=1.5.4"></script>
+<script src="js/app.js?v=1.6.0"></script>
 </body>
 </html>
