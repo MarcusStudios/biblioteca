@@ -110,9 +110,14 @@ async function signInSupabaseWithGoogle(idToken){
       headers:{apikey:cfg.key,'Content-Type':'application/json'},
       body:JSON.stringify({provider:'google',id_token:tok})
     });
-    if(!res.ok)return '';
     const txt=await res.text(),data=txt?JSON.parse(txt):null;
+    if(!res.ok){
+      const msg=(data&&(data.msg||data.error_description||data.error))||('HTTP '+res.status);
+      supaLastErr='Autenticação Supabase falhou ('+msg+'). Verifique o provedor Google e "Skip nonce checks".';
+      return '';
+    }
     const saved=saveSupaSession(data);
+    if(saved)supaLastErr='';
     return saved?saved.access_token:'';
   }catch(e){return ''}
 }
@@ -149,14 +154,17 @@ async function supaReq(path,opts={},retried=false){
   const cfg=getSupaCfg();
   if(!cfg)return null;
   const tok=await getValidSupaToken(false);
-  const bearer=tok||cfg.key;
-  const res=await fetch(cfg.url+'/rest/v1/'+path,{...opts,headers:{apikey:cfg.key,Authorization:'Bearer '+bearer,'Content-Type':'application/json',...(opts.headers||{})}});
+  const headers={apikey:cfg.key,'Content-Type':'application/json',...(opts.headers||{})};
+  if(tok)headers.Authorization='Bearer '+tok;
+  else if(cfg.key.startsWith('eyJ'))headers.Authorization='Bearer '+cfg.key;
+  const res=await fetch(cfg.url+'/rest/v1/'+path,{...opts,headers});
   if(res.status===401&&!retried){
     const fresh=await getValidSupaToken(true);
-    if(fresh&&fresh!==bearer)return supaReq(path,opts,true);
+    if(fresh&&fresh!==tok)return supaReq(path,opts,true);
   }
   if(!res.ok){
-    supaLastErr=res.status===401||res.status===403?'Acesso negado pelo Supabase (HTTP '+res.status+'). Verifique o provedor Google / RLS.':'Erro Supabase HTTP '+res.status;
+    if(!tok&&!supaLastErr)supaLastErr='Sessão de nuvem inativa. Clique em Sair e entre novamente com Google.';
+    else if(!supaLastErr)supaLastErr=res.status===401||res.status===403?'Acesso negado pelo Supabase (HTTP '+res.status+'). Verifique o provedor Google / RLS.':'Erro Supabase HTTP '+res.status;
     throw new Error('Supabase HTTP '+res.status);
   }
   supaLastErr='';
