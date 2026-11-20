@@ -634,9 +634,32 @@ async function fetchJson(url,ms=7000){
 function cleanText(s){
   return String(s||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/\n{3,}/g,'\n\n').trim();
 }
+function normCatTxt(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}
+const CAT_RULES=[
+  ['Liturgia',/\b(liturg|missal|breviario|liturgia das horas|sacrament|eucarist|lecionario|ritual romano)\b/],
+  ['Vida dos Santos',/\b(vida dos santos|hagiograf|saints|canoniz|martir|biograf.*sant[oa])\b/],
+  ['Espiritualidade',/\b(espiritual|devoc|orac|meditac|contemplac|mistica|ascet|mariolog|virgem maria|santissima virgem|imitacao de cristo|retiro|spiritual|devotion|prayer|mystic|christian life|vida crista|piety|piedade)\b/],
+  ['Bíblia e Teologia',/\b(biblia|teolog|catecismo|evangelh|escritura|patristic|dogma|apologetic|eclesiolog|cristolog|trindade|religiao|religion|theology|bible|biblical|christian|catholic|catolic|igreja catolica)\b/],
+  ['História da Igreja',/\b(historia da igreja|church history|concilio|papado|patrologia|reforma catolica)\b/],
+  ['Filosofia',/\b(filosof|philosoph|etica|metafisica|logica|escolastica|tomismo)\b/],
+  ['Infantil',/\b(infantil|juvenile|children|infantojuvenil|crianca)\b/],
+  ['Literatura',/\b(literatura|romance|poesia|poetry|novela|ficcao|fiction|drama|contos|classicos)\b/]
+];
+function classifyBookCategory(cats,title,sinopse){
+  const list=(Array.isArray(cats)?cats:[cats]).flatMap(c=>String(c||'').split(/[\/;]+/)).map(s=>s.trim()).filter(Boolean);
+  const strongTxt=normCatTxt(list.join(' ')+' '+(title||''));
+  const fullTxt=normCatTxt(list.join(' ')+' '+(title||'')+' '+(sinopse||''));
+  for(const [label,re] of CAT_RULES)if(re.test(strongTxt))return label;
+  for(const [label,re] of CAT_RULES)if(re.test(fullTxt))return label;
+  const first=list.find(s=>!/^(general|geral|nonfiction|nao ficcao|books|livros)$/i.test(s));
+  return first||'';
+}
 const BOOK_META_KEYS=['author','cover','category','editora','ano','paginas','sinopse'];
 function mergeBookMeta(target,src){
   if(!target||!src)return target||src||null;
+  const tc=Array.isArray(target._cats)?target._cats:(target.category?[target.category]:[]);
+  const sc=Array.isArray(src._cats)?src._cats:(src.category?[src.category]:[]);
+  if(tc.length||sc.length)target._cats=[...new Set([...tc,...sc])];
   for(const k of BOOK_META_KEYS)if(!target[k]&&src[k])target[k]=src[k];
   return target;
 }
@@ -646,11 +669,14 @@ function parseGoogleItem(best,items){
   const pick=fn=>{for(const it of items){const r=fn(it,it&&it.volumeInfo||{});if(r)return r}return ''};
   const cover=pick((it,vi)=>{const il=vi.imageLinks||{},u=il.thumbnail||il.smallThumbnail||'';return u?u.replace(/^http:/,'https:').replace('&edge=curl',''):''});
   const sin=cleanText(pick((it,vi)=>vi.description||(it&&it.searchInfo&&it.searchInfo.textSnippet)||''));
+  const cats=items.flatMap(it=>Array.isArray(it&&it.volumeInfo&&it.volumeInfo.categories)?it.volumeInfo.categories:[]).map(String);
+  const title=joinTitle(v.title,v.subtitle);
   return {
-    title:joinTitle(v.title,v.subtitle),
+    title,
     author:Array.isArray(v.authors)?v.authors.filter(Boolean).join(', '):pick((it,vi)=>Array.isArray(vi.authors)?vi.authors.filter(Boolean).join(', '):''),
     cover,
-    category:pick((it,vi)=>Array.isArray(vi.categories)&&vi.categories[0]?String(vi.categories[0]).split('/')[0].trim():''),
+    _cats:cats,
+    category:classifyBookCategory(cats,title,sin),
     editora:v.publisher||pick((it,vi)=>vi.publisher||''),
     ano:v.publishedDate?String(v.publishedDate):pick((it,vi)=>vi.publishedDate?String(vi.publishedDate):''),
     paginas:v.pageCount?String(v.pageCount):pick((it,vi)=>vi.pageCount?String(vi.pageCount):''),
@@ -663,8 +689,9 @@ const ISBN_PROVIDERS=[
     const d=await fetchJson('https://brasilapi.com.br/api/isbn/v1/'+encodeURIComponent(code));
     if(!d||!d.title)return null;
     const author=Array.isArray(d.authors)?d.authors.filter(Boolean).join(', '):(d.authors||'');
-    const cat=Array.isArray(d.subjects)&&d.subjects[0]?String(d.subjects[0]).split('/')[0].trim():'';
-    return {title:joinTitle(d.title,d.subtitle),author,cover:d.cover_url||'',category:cat,editora:String(d.publisher||'').trim(),ano:d.year?String(d.year):'',paginas:d.page_count?String(d.page_count):'',sinopse:cleanText(d.synopsis),source:'BrasilAPI'};
+    const cats=Array.isArray(d.subjects)?d.subjects.map(String):[];
+    const title=joinTitle(d.title,d.subtitle),sin=cleanText(d.synopsis);
+    return {title,author,cover:d.cover_url||'',_cats:cats,category:classifyBookCategory(cats,title,sin),editora:String(d.publisher||'').trim(),ano:d.year?String(d.year):'',paginas:d.page_count?String(d.page_count):'',sinopse:sin,source:'BrasilAPI'};
   }},
   {name:'Google Books',async get(code){
     const d=await fetchJson('https://www.googleapis.com/books/v1/volumes?q=isbn:'+encodeURIComponent(code)+(getAppKey('GOOGLE_BOOKS_API_KEY')?'&key='+encodeURIComponent(getAppKey('GOOGLE_BOOKS_API_KEY')):''));
@@ -679,18 +706,22 @@ const ISBN_PROVIDERS=[
     if(!b||!b.title)return null;
     const author=Array.isArray(b.authors)&&b.authors.length?b.authors.map(a=>a&&a.name).filter(Boolean).join(', '):(b.by_statement||'');
     const cv=b.cover||{},ex=Array.isArray(b.excerpts)&&b.excerpts[0]&&b.excerpts[0].text;
-    return {title:joinTitle(b.title,b.subtitle),author,cover:cv.medium||cv.large||cv.small||'',category:Array.isArray(b.subjects)&&b.subjects[0]?b.subjects[0].name:'',editora:Array.isArray(b.publishers)&&b.publishers[0]?b.publishers[0].name:'',ano:b.publish_date||'',paginas:b.number_of_pages?String(b.number_of_pages):'',sinopse:cleanText(b.notes||ex||''),source:'Open Library'};
+    const cats=Array.isArray(b.subjects)?b.subjects.map(s=>s&&s.name).filter(Boolean):[];
+    const title=joinTitle(b.title,b.subtitle),sin=cleanText(b.notes||ex||'');
+    return {title,author,cover:cv.medium||cv.large||cv.small||'',_cats:cats,category:classifyBookCategory(cats,title,sin),editora:Array.isArray(b.publishers)&&b.publishers[0]?b.publishers[0].name:'',ano:b.publish_date||'',paginas:b.number_of_pages?String(b.number_of_pages):'',sinopse:sin,source:'Open Library'};
   }},
   {name:'Open Library Search',async get(code){
     const d=await fetchJson('https://openlibrary.org/search.json?isbn='+encodeURIComponent(code)+'&fields=title,subtitle,author_name,publisher,first_publish_year,number_of_pages_median,subject,cover_i&limit=3');
     const docs=Array.isArray(d&&d.docs)?d.docs:[];
     const doc=docs.find(x=>x&&x.title&&Array.isArray(x.author_name)&&x.author_name.length)||docs.find(x=>x&&x.title);
     if(!doc)return null;
+    const cats=Array.isArray(doc.subject)?doc.subject.map(String):[],title=joinTitle(doc.title,doc.subtitle);
     return {
-      title:joinTitle(doc.title,doc.subtitle),
+      title,
       author:Array.isArray(doc.author_name)?doc.author_name.filter(Boolean).join(', '):'',
       cover:doc.cover_i?'https://covers.openlibrary.org/b/id/'+doc.cover_i+'-L.jpg?default=false':'',
-      category:Array.isArray(doc.subject)&&doc.subject[0]?String(doc.subject[0]).split('/')[0].trim():'',
+      _cats:cats,
+      category:classifyBookCategory(cats,title,''),
       editora:Array.isArray(doc.publisher)&&doc.publisher[0]?String(doc.publisher[0]):'',
       ano:doc.first_publish_year?String(doc.first_publish_year):'',
       paginas:doc.number_of_pages_median?String(doc.number_of_pages_median):'',
@@ -712,7 +743,10 @@ async function queryIsbnProviders(code){
     }
   }));
   const found=results.find(Boolean);
-  if(found)for(const r of results)mergeBookMeta(found,r);
+  if(found){
+    for(const r of results)mergeBookMeta(found,r);
+    found.category=classifyBookCategory(found._cats,found.title,found.sinopse)||found.category;
+  }
   return {book:found||null,reachable};
 }
 async function queryWikiSummary(title){
@@ -744,11 +778,13 @@ async function queryByTitleAuthor(title,author){
       const docs=Array.isArray(d&&d.docs)?d.docs:[];
       const doc=docs.find(x=>x&&x.title&&Array.isArray(x.author_name)&&x.author_name.length)||docs[0];
       if(!doc)return null;
+      const cats=Array.isArray(doc.subject)?doc.subject.map(String):[],olTitle=joinTitle(doc.title,doc.subtitle);
       return {
-        title:joinTitle(doc.title,doc.subtitle),
+        title:olTitle,
         author:Array.isArray(doc.author_name)?doc.author_name.filter(Boolean).join(', '):'',
         cover:doc.cover_i?'https://covers.openlibrary.org/b/id/'+doc.cover_i+'-L.jpg?default=false':'',
-        category:Array.isArray(doc.subject)&&doc.subject[0]?String(doc.subject[0]).split('/')[0].trim():'',
+        _cats:cats,
+        category:classifyBookCategory(cats,olTitle||title,''),
         editora:Array.isArray(doc.publisher)&&doc.publisher[0]?String(doc.publisher[0]):'',
         ano:doc.first_publish_year?String(doc.first_publish_year):'',
         paginas:doc.number_of_pages_median?String(doc.number_of_pages_median):'',
@@ -768,6 +804,7 @@ async function queryByTitleAuthor(title,author){
     const wk=await queryWikiSummary(title);
     if(wk)mergeBookMeta(out,wk);
   }
+  if(Object.keys(out).length)out.category=classifyBookCategory(out._cats,out.title||title,out.sinopse)||out.category;
   return Object.keys(out).length?out:null;
 }
 async function resolveBookByVariants(variants){
@@ -782,6 +819,7 @@ async function resolveBookByVariants(variants){
     const fb=await queryByTitleAuthor(res.book.title,res.book.author);
     if(fb)mergeBookMeta(res.book,fb);
   }
+  if(res.book)res.book.category=classifyBookCategory(res.book._cats,res.book.title,res.book.sinopse)||res.book.category;
   return res;
 }
 
